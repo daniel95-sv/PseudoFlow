@@ -1,0 +1,776 @@
+[
+  {
+    "id": "example-a1-vuelto",
+    "title_es": "El vuelto de una compra",
+    "title_en": "The change from a purchase",
+    "summary_es": "Una secuencia precisa de tres casillas.",
+    "summary_en": "A precise sequence of three boxes.",
+    "code_es": "Proceso Vuelto\n    Definir precio Como Entero;\n    Definir pago Como Entero;\n    Definir vuelto Como Entero;\n    precio <- 45;\n    pago <- 50;\n    vuelto <- pago - precio;\n    Escribir vuelto;\nFinProceso\n",
+    "code_en": "algorithm Change\n    define price as integer;\n    define payment as integer;\n    define change as integer;\n    price <- 45;\n    payment <- 50;\n    change <- payment - price;\n    write change;\nendAlgorithm\n"
+  },
+  {
+    "id": "example-a1-promedio",
+    "title_es": "Promedio de tres notas",
+    "title_en": "Average of three grades",
+    "summary_es": "Por qué el orden de los pasos no es negociable.",
+    "summary_en": "Why the order of the steps is not negotiable.",
+    "code_es": "Proceso Promedio\n    Definir n1 Como Entero;\n    Definir n2 Como Entero;\n    Definir n3 Como Entero;\n    Definir suma Como Entero;\n    Definir promedio Como Real;\n    n1 <- 8;\n    n2 <- 7;\n    n3 <- 9;\n    suma <- n1 + n2 + n3;\n    promedio <- suma / 3;\n    Escribir promedio;\nFinProceso\n",
+    "code_en": "algorithm Average\n    define n1 as integer;\n    define n2 as integer;\n    define n3 as integer;\n    define sum as integer;\n    define average as real;\n    n1 <- 8;\n    n2 <- 7;\n    n3 <- 9;\n    sum <- n1 + n2 + n3;\n    average <- sum / 3;\n    write average;\nendAlgorithm\n"
+  },
+  {
+    "id": "example-a2-acumulador",
+    "title_es": "Acumulador simple",
+    "title_en": "Simple accumulator",
+    "summary_es": "Una casilla que se actualiza dos veces sobre su propio valor.",
+    "summary_en": "A box that updates twice on top of its own value.",
+    "code_es": "Proceso Acumulador\n    Definir total Como Entero;\n    Definir n Como Entero;\n    total <- 0;\n    n <- 5;\n    total <- total + n;\n    n <- 3;\n    total <- total + n;\n    Escribir total;\nFinProceso\n",
+    "code_en": "algorithm Accumulator\n    define total as integer;\n    define n as integer;\n    total <- 0;\n    n <- 5;\n    total <- total + n;\n    n <- 3;\n    total <- total + n;\n    write total;\nendAlgorithm\n"
+  },
+  {
+    "id": "example-sum",
+    "title_es": "Suma de dos números",
+    "title_en": "Sum of two numbers",
+    "summary_es": "Declara, asigna y calcula con tres variables.",
+    "summary_en": "Declares, assigns and computes with three variables.",
+    "code_es": "Proceso Suma\n    Definir a Como Entero;\n    Definir b Como Entero;\n    Definir resultado Como Entero;\n    a <- 15;\n    b <- 27;\n    resultado <- a + b;\n    Escribir \"Resultado: \", resultado;\nFinProceso\n",
+    "code_en": "algorithm Sum\n    define a as integer;\n    define b as integer;\n    define result as integer;\n    a <- 15;\n    b <- 27;\n    result <- a + b;\n    write \"Result: \", result;\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b1-expresiones",
+    "title_es": "Precedencia en una expresión",
+    "title_en": "Precedence in an expression",
+    "summary_es": "La misma cuenta con paréntesis y sin ellos.",
+    "summary_en": "The same computation with and without parentheses.",
+    "code_es": "Proceso Expresiones\n    Definir base Como Entero;\n    Definir altura Como Entero;\n    Definir sinParentesis Como Entero;\n    Definir conParentesis Como Entero;\n    base <- 2;\n    altura <- 3;\n    sinParentesis <- base + altura * 2;\n    conParentesis <- (base + altura) * 2;\n    Escribir sinParentesis;\n    Escribir conParentesis;\nFinProceso\n",
+    "code_en": "algorithm Expressions\n    define base as integer;\n    define height as integer;\n    define withoutParentheses as integer;\n    define withParentheses as integer;\n    base <- 2;\n    height <- 3;\n    withoutParentheses <- base + height * 2;\n    withParentheses <- (base + height) * 2;\n    write withoutParentheses;\n    write withParentheses;\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b1-intercambio",
+    "title_es": "Intercambio con casilla auxiliar",
+    "title_en": "Swap with an auxiliary box",
+    "summary_es": "Por qué hace falta una tercera casilla.",
+    "summary_en": "Why a third box is needed.",
+    "code_es": "Proceso Intercambio\n    Definir a Como Entero;\n    Definir b Como Entero;\n    Definir auxiliar Como Entero;\n    a <- 7;\n    b <- 4;\n    auxiliar <- a;\n    a <- b;\n    b <- auxiliar;\n    Escribir a;\n    Escribir b;\nFinProceso\n",
+    "code_en": "algorithm Swap\n    define a as integer;\n    define b as integer;\n    define auxiliary as integer;\n    a <- 7;\n    b <- 4;\n    auxiliary <- a;\n    a <- b;\n    b <- auxiliary;\n    write a;\n    write b;\nendAlgorithm\n"
+  },
+  {
+    "id": "example-guided-demo",
+    "title_es": "Demostración guiada",
+    "title_en": "Guided demo",
+    "summary_es": "Algoritmo interactivo de la experiencia de bienvenida.",
+    "summary_en": "Interactive algorithm of the welcome experience.",
+    "code_es": "Proceso DemostracionGuiada\n    Definir temperatura Como Entero;\n    Definir lecturas Como Entero;\n    temperatura <- 30;\n    lecturas <- 0;\n    Mientras temperatura > 24 Hacer\n        temperatura <- temperatura - 3;\n        lecturas <- lecturas + 1;\n        Escribir \"Lectura \", lecturas, \": \", temperatura, \" grados\";\n    FinMientras\n    Escribir \"Confort alcanzado tras \", lecturas, \" lecturas\";\nFinProceso\n",
+    "code_en": "algorithm GuidedDemo\n    define temperature as integer;\n    define readings as integer;\n    temperature <- 30;\n    readings <- 0;\n    while temperature > 24 do\n        temperature <- temperature - 3;\n        readings <- readings + 1;\n        write \"Reading \", readings, \": \", temperature, \" degrees\";\n    endWhile\n    write \"Comfort reached after \", readings, \" readings\";\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b2-lectura-multiple",
+    "title_es": "Suma en una sola lectura",
+    "title_en": "Sum in a single read",
+    "summary_es": "Dos designadores pedidos en una sola sentencia.",
+    "summary_en": "Two designators requested in a single statement.",
+    "code_es": "Proceso SumaEnUnaLectura\n    Definir a Como Entero;\n    Definir b Como Entero;\n    Leer a, b;\n    Escribir a + b;\nFinProceso\n",
+    "code_en": "algorithm SumInOneRead\n    define a as integer;\n    define b as integer;\n    read a, b;\n    write a + b;\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b2-saludo",
+    "title_es": "Saludo con nombre y edad",
+    "title_en": "Greeting with name and age",
+    "summary_es": "Una lista de expresiones y el modificador sin salto de línea.",
+    "summary_en": "A list of expressions and the no-line-break modifier.",
+    "code_es": "Proceso Saludo\n    Definir nombre Como Cadena;\n    Definir edad Como Entero;\n    Leer nombre;\n    Leer edad;\n    Escribir \"Hola, \", nombre, \". \" Sin Saltar;\n    Escribir \"Tienes \", edad, \" años.\";\nFinProceso\n",
+    "code_en": "algorithm Greeting\n    define name as string;\n    define age as integer;\n    read name;\n    read age;\n    write \"Hello, \", name, \". \" without newline;\n    write \"You are \", age, \" years old.\";\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b3-aprobado",
+    "title_es": "Aprobado o reprobado",
+    "title_en": "Passed or failed",
+    "summary_es": "Un condicional simple con las dos ramas.",
+    "summary_en": "A simple conditional with both branches.",
+    "code_es": "Proceso Aprobado\n    Definir nota Como Entero;\n    Leer nota;\n    Si nota >= 5 Entonces\n        Escribir \"Aprobado\";\n    SiNo\n        Escribir \"Reprobado\";\n    FinSi\nFinProceso\n",
+    "code_en": "algorithm Passed\n    define grade as integer;\n    read grade;\n    if grade >= 5 then\n        write \"Passed\";\n    else\n        write \"Failed\";\n    endIf\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b3-dia-semana",
+    "title_es": "Día de la semana",
+    "title_en": "Day of the week",
+    "summary_es": "Una selección múltiple con etiquetas agrupadas y rama por defecto.",
+    "summary_en": "A multiple selection with grouped labels and a default branch.",
+    "code_es": "Proceso DiaDeLaSemana\n    Definir dia Como Entero;\n    Leer dia;\n    Segun dia Hacer\n        1, 7:\n            Escribir \"Fin de semana\";\n        2, 3, 4, 5, 6:\n            Escribir \"Laborable\";\n        De Otro Modo:\n            Escribir \"Dia invalido\";\n    FinSegun\nFinProceso\n",
+    "code_en": "algorithm DayOfWeek\n    define day as integer;\n    read day;\n    switch day do\n        1, 7:\n            write \"Weekend\";\n        2, 3, 4, 5, 6:\n            write \"Weekday\";\n        otherwise:\n            write \"Invalid day\";\n    endSwitch\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b4-mientras",
+    "title_es": "Cuenta regresiva",
+    "title_en": "Countdown",
+    "summary_es": "Un bucle Mientras que puede no ejecutarse ni una vez.",
+    "summary_en": "A While loop that may run zero times.",
+    "code_es": "Proceso CuentaRegresiva\n    Definir i Como Entero;\n    Leer i;\n    Mientras i > 0 Hacer\n        Escribir i;\n        i <- i - 1;\n    FinMientras\nFinProceso\n",
+    "code_en": "algorithm Countdown\n    define i as integer;\n    read i;\n    while i > 0 do\n        write i;\n        i <- i - 1;\n    endWhile\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b4-repetir",
+    "title_es": "Suma hasta el centinela",
+    "title_en": "Sum until the sentinel",
+    "summary_es": "Un bucle Repetir que siempre ejecuta al menos una vez.",
+    "summary_en": "A Repeat loop that always runs at least once.",
+    "code_es": "Proceso SumaHastaCero\n    Definir n Como Entero;\n    Definir total Como Entero;\n    total <- 0;\n    Repetir\n        Leer n;\n        total <- total + n;\n    Hasta Que n = 0;\n    Escribir total;\nFinProceso\n",
+    "code_en": "algorithm SumUntilZero\n    define n as integer;\n    define total as integer;\n    total <- 0;\n    repeat\n        read n;\n        total <- total + n;\n    until n = 0;\n    write total;\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b4-para",
+    "title_es": "Números pares",
+    "title_en": "Even numbers",
+    "summary_es": "Un bucle Para con paso explícito distinto de uno.",
+    "summary_en": "A For loop with an explicit step other than one.",
+    "code_es": "Proceso Pares\n    Definir i Como Entero;\n    Para i <- 0 Hasta 10 Con Paso 2 Hacer\n        Escribir i;\n    FinPara\nFinProceso\n",
+    "code_en": "algorithm EvenNumbers\n    define i as integer;\n    for i <- 0 to 10 step 2 do\n        write i;\n    endFor\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b5-recorrido",
+    "title_es": "Recorrido de un vector",
+    "title_en": "Vector traversal",
+    "summary_es": "Llenar y leer un arreglo entero con un bucle contado.",
+    "summary_en": "Filling and reading a whole array with a counted loop.",
+    "code_es": "Proceso RecorridoDeVector\n    Dimension numeros[5] Como Entero;\n    Definir i Como Entero;\n    Para i <- 0 Hasta 4 Con Paso 1 Hacer\n        Leer numeros[i];\n    FinPara\n    Para i <- 0 Hasta 4 Con Paso 1 Hacer\n        Escribir numeros[i];\n    FinPara\nFinProceso\n",
+    "code_en": "algorithm VectorTraversal\n    dimension numbers[5] as integer;\n    define i as integer;\n    for i <- 0 to 4 step 1 do\n        read numbers[i];\n    endFor\n    for i <- 0 to 4 step 1 do\n        write numbers[i];\n    endFor\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b5-busqueda",
+    "title_es": "Búsqueda de un elemento",
+    "title_en": "Searching for an element",
+    "summary_es": "Recorrer un vector comparando cada elemento con un objetivo.",
+    "summary_en": "Traversing a vector comparing every element against a target.",
+    "code_es": "Proceso BuscarElemento\n    Dimension numeros[5] Como Entero;\n    Definir i Como Entero;\n    Definir objetivo Como Entero;\n    Definir indice Como Entero;\n    Para i <- 0 Hasta 4 Con Paso 1 Hacer\n        Leer numeros[i];\n    FinPara\n    Leer objetivo;\n    indice <- -1;\n    Para i <- 0 Hasta 4 Con Paso 1 Hacer\n        Si numeros[i] = objetivo Entonces\n            indice <- i;\n        FinSi\n    FinPara\n    Escribir indice;\nFinProceso\n",
+    "code_en": "algorithm SearchElement\n    dimension numbers[5] as integer;\n    define i as integer;\n    define target as integer;\n    define index as integer;\n    for i <- 0 to 4 step 1 do\n        read numbers[i];\n    endFor\n    read target;\n    index <- -1;\n    for i <- 0 to 4 step 1 do\n        if numbers[i] = target then\n            index <- i;\n        endIf\n    endFor\n    write index;\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b5-matriz",
+    "title_es": "Suma de una matriz",
+    "title_en": "Sum of a matrix",
+    "summary_es": "Un bucle contado dentro de otro para recorrer dos dimensiones.",
+    "summary_en": "A counted loop inside another to traverse two dimensions.",
+    "code_es": "Proceso SumaDeMatriz\n    Dimension datos[2, 3] Como Entero;\n    Definir fila Como Entero;\n    Definir columna Como Entero;\n    Definir total Como Entero;\n    Para fila <- 0 Hasta 1 Con Paso 1 Hacer\n        Para columna <- 0 Hasta 2 Con Paso 1 Hacer\n            Leer datos[fila, columna];\n        FinPara\n    FinPara\n    total <- 0;\n    Para fila <- 0 Hasta 1 Con Paso 1 Hacer\n        Para columna <- 0 Hasta 2 Con Paso 1 Hacer\n            total <- total + datos[fila, columna];\n        FinPara\n    FinPara\n    Escribir total;\nFinProceso\n",
+    "code_en": "algorithm SumOfMatrix\n    dimension data[2, 3] as integer;\n    define row as integer;\n    define column as integer;\n    define total as integer;\n    for row <- 0 to 1 step 1 do\n        for column <- 0 to 2 step 1 do\n            read data[row, column];\n        endFor\n    endFor\n    total <- 0;\n    for row <- 0 to 1 step 1 do\n        for column <- 0 to 2 step 1 do\n            total <- total + data[row, column];\n        endFor\n    endFor\n    write total;\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b6-funcion",
+    "title_es": "Función con retorno",
+    "title_en": "Function with a return value",
+    "summary_es": "Una función que devuelve el mayor de dos números.",
+    "summary_en": "A function that returns the larger of two numbers.",
+    "code_es": "SubProceso Maximo(a Como Entero, b Como Entero) Como Entero\n    Si a > b Entonces\n        Retornar a;\n    SiNo\n        Retornar b;\n    FinSi\nFinSubProceso\n\nProceso CalculoDeMaximo\n    Definir n1 Como Entero;\n    Definir n2 Como Entero;\n    Leer n1;\n    Leer n2;\n    Escribir Maximo(n1, n2);\nFinProceso\n",
+    "code_en": "subroutine Maximum(a as integer, b as integer) as integer\n    if a > b then\n        return a;\n    else\n        return b;\n    endIf\nendSubroutine\n\nalgorithm ComputeMaximum\n    define x as integer;\n    define y as integer;\n    read x;\n    read y;\n    write Maximum(x, y);\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b6-referencia",
+    "title_es": "Paso por referencia",
+    "title_en": "Passing by reference",
+    "summary_es": "Intercambiar dos variables solo funciona por referencia.",
+    "summary_en": "Swapping two variables only works by reference.",
+    "code_es": "SubProceso Intercambiar(a Como Entero Por Referencia, b Como Entero Por Referencia)\n    Definir auxiliar Como Entero;\n    auxiliar <- a;\n    a <- b;\n    b <- auxiliar;\nFinSubProceso\n\nProceso ProbarIntercambio\n    Definir n1 Como Entero;\n    Definir n2 Como Entero;\n    Leer n1;\n    Leer n2;\n    Intercambiar(n1, n2);\n    Escribir n1;\n    Escribir n2;\nFinProceso\n",
+    "code_en": "subroutine Swap(a as integer by reference, b as integer by reference)\n    define auxiliary as integer;\n    auxiliary <- a;\n    a <- b;\n    b <- auxiliary;\nendSubroutine\n\nalgorithm TrySwap\n    define x as integer;\n    define y as integer;\n    read x;\n    read y;\n    Swap(x, y);\n    write x;\n    write y;\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b6-arreglo-parametro",
+    "title_es": "Un arreglo como parámetro",
+    "title_en": "An array as a parameter",
+    "summary_es": "Un procedimiento que muta el arreglo que recibió.",
+    "summary_en": "A procedure that mutates the array it received.",
+    "code_es": "SubProceso DuplicarElementos(datos[] Como Entero Por Referencia, tamano Como Entero)\n    Definir i Como Entero;\n    Para i <- 0 Hasta tamano - 1 Con Paso 1 Hacer\n        datos[i] <- datos[i] * 2;\n    FinPara\nFinSubProceso\n\nProceso ProbarDuplicado\n    Dimension vector[3] Como Entero;\n    Definir i Como Entero;\n    Para i <- 0 Hasta 2 Con Paso 1 Hacer\n        Leer vector[i];\n    FinPara\n    DuplicarElementos(vector, 3);\n    Para i <- 0 Hasta 2 Con Paso 1 Hacer\n        Escribir vector[i];\n    FinPara\nFinProceso\n",
+    "code_en": "subroutine DoubleElements(data[] as integer by reference, size as integer)\n    define i as integer;\n    for i <- 0 to size - 1 step 1 do\n        data[i] <- data[i] * 2;\n    endFor\nendSubroutine\n\nalgorithm TryDoubling\n    dimension vector[3] as integer;\n    define i as integer;\n    for i <- 0 to 2 step 1 do\n        read vector[i];\n    endFor\n    DoubleElements(vector, 3);\n    for i <- 0 to 2 step 1 do\n        write vector[i];\n    endFor\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b7-factorial",
+    "title_es": "Factorial recursivo",
+    "title_en": "Recursive factorial",
+    "summary_es": "Caso base y caso recursivo, el ejemplo canónico.",
+    "summary_en": "Base case and recursive case, the canonical example.",
+    "code_es": "SubProceso Factorial(n Como Entero) Como Entero\n    Si n <= 1 Entonces\n        Retornar 1;\n    SiNo\n        Retornar n * Factorial(n - 1);\n    FinSi\nFinSubProceso\n\nProceso CalcularFactorial\n    Definir n Como Entero;\n    Leer n;\n    Escribir Factorial(n);\nFinProceso\n",
+    "code_en": "subroutine Factorial(n as integer) as integer\n    if n <= 1 then\n        return 1;\n    else\n        return n * Factorial(n - 1);\n    endIf\nendSubroutine\n\nalgorithm ComputeFactorial\n    define n as integer;\n    read n;\n    write Factorial(n);\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b7-suma",
+    "title_es": "Suma recursiva de 1 a n",
+    "title_en": "Recursive sum from 1 to n",
+    "summary_es": "Cada llamada tiene su propio marco y su propio n.",
+    "summary_en": "Every call has its own frame and its own n.",
+    "code_es": "SubProceso SumaHasta(n Como Entero) Como Entero\n    Si n <= 0 Entonces\n        Retornar 0;\n    SiNo\n        Retornar n + SumaHasta(n - 1);\n    FinSi\nFinSubProceso\n\nProceso CalcularSuma\n    Definir n Como Entero;\n    Leer n;\n    Escribir SumaHasta(n);\nFinProceso\n",
+    "code_en": "subroutine SumUpTo(n as integer) as integer\n    if n <= 0 then\n        return 0;\n    else\n        return n + SumUpTo(n - 1);\n    endIf\nendSubroutine\n\nalgorithm ComputeSum\n    define n as integer;\n    read n;\n    write SumUpTo(n);\nendAlgorithm\n"
+  },
+  {
+    "id": "example-b8-clasificar",
+    "title_es": "Contar notas aprobadas",
+    "title_en": "Count passing grades",
+    "summary_es": "Un bucle contado con un condicional dentro, para leer en los dos diagramas.",
+    "summary_en": "A counted loop with a conditional inside, to read in both diagrams.",
+    "code_es": "Proceso ContarAprobados\n    Definir cantidad Como Entero;\n    Definir i Como Entero;\n    Definir nota Como Entero;\n    Definir aprobados Como Entero;\n    Leer cantidad;\n    aprobados <- 0;\n    Para i <- 1 Hasta cantidad Con Paso 1 Hacer\n        Leer nota;\n        Si nota >= 5 Entonces\n            aprobados <- aprobados + 1;\n        FinSi\n    FinPara\n    Escribir aprobados;\nFinProceso\n",
+    "code_en": "algorithm CountPassing\n    define count as integer;\n    define i as integer;\n    define grade as integer;\n    define passing as integer;\n    read count;\n    passing <- 0;\n    for i <- 1 to count step 1 do\n        read grade;\n        if grade >= 5 then\n            passing <- passing + 1;\n        endIf\n    endFor\n    write passing;\nendAlgorithm\n"
+  },
+  {
+    "id": "example-c1-cuenta",
+    "title_es": "Cuenta bancaria",
+    "title_en": "Bank account",
+    "summary_es": "Una clase con un atributo privado y dos métodos públicos.",
+    "summary_en": "A class with one private attribute and two public methods.",
+    "code_es": "Clase CuentaBancaria\n    Privado Definir saldo Como Entero;\n\n    Metodo Constructor(saldoInicial Como Entero)\n        Este.saldo <- saldoInicial;\n    FinMetodo\n\n    Publico Metodo Saldo() Como Entero\n        Retornar Este.saldo;\n    FinMetodo\n\n    Publico Metodo Depositar(monto Como Entero)\n        Este.saldo <- Este.saldo + monto;\n    FinMetodo\nFinClase\n\nProceso ProbarCuenta\n    Definir cuenta Como CuentaBancaria;\n    cuenta <- Nuevo CuentaBancaria(100);\n    cuenta.Depositar(50);\n    Escribir cuenta.Saldo();\nFinProceso\n",
+    "code_en": "class BankAccount\n    private define balance as integer;\n\n    method constructor(initialBalance as integer)\n        this.balance <- initialBalance;\n    endMethod\n\n    public method Balance() as integer\n        return this.balance;\n    endMethod\n\n    public method Deposit(amount as integer)\n        this.balance <- this.balance + amount;\n    endMethod\nendClass\n\nalgorithm TryAccount\n    define account as BankAccount;\n    account <- new BankAccount(100);\n    account.Deposit(50);\n    write account.Balance();\nendAlgorithm\n"
+  },
+  {
+    "id": "example-c2-persona",
+    "title_es": "Persona con constructor",
+    "title_en": "Person with constructor",
+    "summary_es": "Atributos privados, métodos públicos y un constructor que los inicializa.",
+    "summary_en": "Private attributes, public methods and a constructor that initialises them.",
+    "code_es": "Clase Persona\n    Privado Definir nombre Como Cadena;\n    Privado Definir edad Como Entero;\n\n    Metodo Constructor(unNombre Como Cadena, unaEdad Como Entero)\n        Este.nombre <- unNombre;\n        Este.edad <- unaEdad;\n    FinMetodo\n\n    Publico Metodo Nombre() Como Cadena\n        Retornar Este.nombre;\n    FinMetodo\n\n    Publico Metodo Edad() Como Entero\n        Retornar Este.edad;\n    FinMetodo\n\n    Publico Metodo Cumplir()\n        Este.edad <- Este.edad + 1;\n    FinMetodo\nFinClase\n\nProceso ProbarPersona\n    Definir nombre Como Cadena;\n    Definir edad Como Entero;\n    Definir persona Como Persona;\n    Leer nombre;\n    Leer edad;\n    persona <- Nuevo Persona(nombre, edad);\n    persona.Cumplir();\n    Escribir persona.Edad();\nFinProceso\n",
+    "code_en": "class Person\n    private define name as string;\n    private define age as integer;\n\n    method constructor(aName as string, anAge as integer)\n        this.name <- aName;\n        this.age <- anAge;\n    endMethod\n\n    public method Name() as string\n        return this.name;\n    endMethod\n\n    public method Age() as integer\n        return this.age;\n    endMethod\n\n    public method HaveBirthday()\n        this.age <- this.age + 1;\n    endMethod\nendClass\n\nalgorithm TryPerson\n    define name as string;\n    define age as integer;\n    define person as Person;\n    read name;\n    read age;\n    person <- new Person(name, age);\n    person.HaveBirthday();\n    write person.Age();\nendAlgorithm\n"
+  },
+  {
+    "id": "example-c3-alias",
+    "title_es": "Dos variables, un objeto",
+    "title_en": "Two variables, one object",
+    "summary_es": "Asignar un objeto copia la referencia, no crea uno nuevo.",
+    "summary_en": "Assigning an object copies the reference, it does not create a new one.",
+    "code_es": "Clase Caja\n    Publico Definir contenido Como Entero;\nFinClase\n\nProceso ProbarAlias\n    Definir a Como Caja;\n    Definir b Como Caja;\n    a <- Nuevo Caja();\n    a.contenido <- 10;\n    b <- a;\n    b.contenido <- 99;\n    Escribir a.contenido;\nFinProceso\n",
+    "code_en": "class Box\n    public define content as integer;\nendClass\n\nalgorithm TryAlias\n    define a as Box;\n    define b as Box;\n    a <- new Box();\n    a.content <- 10;\n    b <- a;\n    b.content <- 99;\n    write a.content;\nendAlgorithm\n"
+  },
+  {
+    "id": "example-c3-copia",
+    "title_es": "Copia independiente",
+    "title_en": "Independent copy",
+    "summary_es": "Copiar crea un objeto nuevo con su propia identidad.",
+    "summary_en": "Copying creates a new object with its own identity.",
+    "code_es": "Clase Caja\n    Publico Definir contenido Como Entero;\nFinClase\n\nProceso ProbarCopia\n    Definir original Como Caja;\n    Definir copia Como Caja;\n    original <- Nuevo Caja();\n    original.contenido <- 10;\n    copia <- Copiar(original);\n    copia.contenido <- 99;\n    Escribir original.contenido;\nFinProceso\n",
+    "code_en": "class Box\n    public define content as integer;\nendClass\n\nalgorithm TryCopy\n    define original as Box;\n    define cloned as Box;\n    original <- new Box();\n    original.content <- 10;\n    cloned <- copy(original);\n    cloned.content <- 99;\n    write original.content;\nendAlgorithm\n"
+  },
+  {
+    "id": "example-c4-mascotas",
+    "title_es": "Mascota y Gato",
+    "title_en": "Pet and Cat",
+    "summary_es": "Herencia simple con cadena de construcción y sobrescritura.",
+    "summary_en": "Single inheritance with a construction chain and an override.",
+    "code_es": "Clase Mascota\n    Privado Definir nombre Como Cadena;\n\n    Metodo Constructor(unNombre Como Cadena)\n        Este.nombre <- unNombre;\n    FinMetodo\n\n    Publico Metodo Nombre() Como Cadena\n        Retornar Este.nombre;\n    FinMetodo\n\n    Publico Metodo Hablar() Como Cadena\n        Retornar \"...\";\n    FinMetodo\nFinClase\n\nClase Gato Hereda De Mascota\n    Privado Definir raza Como Cadena;\n\n    Metodo Constructor(unNombre Como Cadena, unaRaza Como Cadena)\n        Super.Constructor(unNombre);\n        Este.raza <- unaRaza;\n    FinMetodo\n\n    Publico Metodo Hablar() Como Cadena\n        Retornar Este.Nombre() + \" dice miau\";\n    FinMetodo\nFinClase\n\nProceso Refugio\n    Definir mascota Como Mascota;\n    mascota <- Nuevo Gato(\"Kitty\", \"Siames\");\n    Escribir mascota.Hablar();\nFinProceso\n",
+    "code_en": "class Pet\n    private define name as string;\n\n    method constructor(aName as string)\n        this.name <- aName;\n    endMethod\n\n    public method Name() as string\n        return this.name;\n    endMethod\n\n    public method Speak() as string\n        return \"...\";\n    endMethod\nendClass\n\nclass Cat extends Pet\n    private define breed as string;\n\n    method constructor(aName as string, aBreed as string)\n        super.constructor(aName);\n        this.breed <- aBreed;\n    endMethod\n\n    public method Speak() as string\n        return this.Name() + \" says meow\";\n    endMethod\nendClass\n\nalgorithm Shelter\n    define pet as Pet;\n    pet <- new Cat(\"Kitty\", \"Siamese\");\n    write pet.Speak();\nendAlgorithm\n"
+  },
+  {
+    "id": "example-c4-despacho",
+    "title_es": "Perro y Gato hablando por turnos",
+    "title_en": "Dog and Cat taking turns to speak",
+    "summary_es": "El despacho mira la clase real del objeto, no el tipo declarado.",
+    "summary_en": "Dispatch looks at the object's real class, not the declared type.",
+    "code_es": "Clase Mascota\n    Privado Definir nombre Como Cadena;\n\n    Metodo Constructor(unNombre Como Cadena)\n        Este.nombre <- unNombre;\n    FinMetodo\n\n    Publico Metodo Hablar() Como Cadena\n        Retornar \"...\";\n    FinMetodo\nFinClase\n\nClase Perro Hereda De Mascota\n    Metodo Constructor(unNombre Como Cadena)\n        Super.Constructor(unNombre);\n    FinMetodo\n\n    Publico Metodo Hablar() Como Cadena\n        Retornar \"Guau\";\n    FinMetodo\nFinClase\n\nClase Gato Hereda De Mascota\n    Metodo Constructor(unNombre Como Cadena)\n        Super.Constructor(unNombre);\n    FinMetodo\n\n    Publico Metodo Hablar() Como Cadena\n        Retornar \"Miau\";\n    FinMetodo\nFinClase\n\nProceso HablarPorTurnos\n    Definir uno Como Mascota;\n    Definir dos Como Mascota;\n    uno <- Nuevo Perro(\"Rex\");\n    dos <- Nuevo Gato(\"Kitty\");\n    Escribir uno.Hablar();\n    Escribir dos.Hablar();\nFinProceso\n",
+    "code_en": "class Pet\n    private define name as string;\n\n    method constructor(aName as string)\n        this.name <- aName;\n    endMethod\n\n    public method Speak() as string\n        return \"...\";\n    endMethod\nendClass\n\nclass Dog extends Pet\n    method constructor(aName as string)\n        super.constructor(aName);\n    endMethod\n\n    public method Speak() as string\n        return \"Woof\";\n    endMethod\nendClass\n\nclass Cat extends Pet\n    method constructor(aName as string)\n        super.constructor(aName);\n    endMethod\n\n    public method Speak() as string\n        return \"Meow\";\n    endMethod\nendClass\n\nalgorithm TakeTurnsSpeaking\n    define first as Pet;\n    define second as Pet;\n    first <- new Dog(\"Rex\");\n    second <- new Cat(\"Kitty\");\n    write first.Speak();\n    write second.Speak();\nendAlgorithm\n"
+  },
+  {
+    "id": "example-c5-auto",
+    "title_es": "Auto con un Motor",
+    "title_en": "Car with an Engine",
+    "summary_es": "Composición: Auto delega en Motor en vez de heredar de él.",
+    "summary_en": "Composition: Car delegates to Engine instead of extending it.",
+    "code_es": "Clase Motor\n    Privado Definir potencia Como Entero;\n\n    Metodo Constructor(unaPotencia Como Entero)\n        Este.potencia <- unaPotencia;\n    FinMetodo\n\n    Publico Metodo Potencia() Como Entero\n        Retornar Este.potencia;\n    FinMetodo\nFinClase\n\nClase Auto\n    Privado Definir motor Como Motor;\n\n    Metodo Constructor(unaPotencia Como Entero)\n        Este.motor <- Nuevo Motor(unaPotencia);\n    FinMetodo\n\n    Publico Metodo Potencia() Como Entero\n        Retornar Este.motor.Potencia();\n    FinMetodo\nFinClase\n\nProceso ProbarAuto\n    Definir potencia Como Entero;\n    Definir auto Como Auto;\n    Leer potencia;\n    auto <- Nuevo Auto(potencia);\n    Escribir auto.Potencia();\nFinProceso\n",
+    "code_en": "class Engine\n    private define power as integer;\n\n    method constructor(aPower as integer)\n        this.power <- aPower;\n    endMethod\n\n    public method Power() as integer\n        return this.power;\n    endMethod\nendClass\n\nclass Car\n    private define engine as Engine;\n\n    method constructor(aPower as integer)\n        this.engine <- new Engine(aPower);\n    endMethod\n\n    public method Power() as integer\n        return this.engine.Power();\n    endMethod\nendClass\n\nalgorithm TryCar\n    define power as integer;\n    define car as Car;\n    read power;\n    car <- new Car(power);\n    write car.Power();\nendAlgorithm\n"
+  },
+  {
+    "id": "example-esp-lexico-identificadores",
+    "title_es": "Identificadores válidos",
+    "title_en": "Valid identifiers",
+    "summary_es": "Forma permitida para nombres de variables y subprogramas.",
+    "summary_en": "Allowed naming structure for variables and subroutines.",
+    "code_es": "Algoritmo Identificadores\n  Definir total, _contador, valor1, suma_total Como Entero\n  total <- 1\n  _contador <- 2\n  valor1 <- 3\n  suma_total <- total + _contador + valor1\n  Escribir suma_total\nFinAlgoritmo\n",
+    "code_en": "Algorithm Identifiers\n  Define total, _counter, value1, sum_total As Integer\n  total <- 1\n  _counter <- 2\n  value1 <- 3\n  sum_total <- total + _counter + value1\n  Write sum_total\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-lexico-mayusculas",
+    "title_es": "Insensibilidad a mayúsculas",
+    "title_en": "Case insensitivity",
+    "summary_es": "Las palabras reservadas e identificadores no distinguen mayúsculas de minúsculas.",
+    "summary_en": "Keywords and identifiers do not distinguish uppercase from lowercase.",
+    "code_es": "ALGORITMO Mayusculas\n  DEFINIR n COMO ENTERO\n  n <- 10\n  ESCRIBIR n\nFINALGORITMO\n",
+    "code_en": "ALGORITHM Uppercase\n  DEFINE n AS INTEGER\n  n <- 10\n  WRITE n\nENDALGORITHM\n"
+  },
+  {
+    "id": "example-esp-lexico-numeros",
+    "title_es": "Literales numéricos",
+    "title_en": "Numeric literals",
+    "summary_es": "Enteros con signo opcional y reales con punto decimal.",
+    "summary_en": "Integers with optional sign and real numbers with a decimal point.",
+    "code_es": "Algoritmo Numeros\n  Definir a Como Entero\n  Definir b Como Real\n  a <- -42\n  b <- 3.14\n  Escribir a, b\nFinAlgoritmo\n",
+    "code_en": "Algorithm Numbers\n  Define a As Integer\n  Define b As Real\n  a <- -42\n  b <- 3.14\n  Write a, b\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-lexico-cadenas",
+    "title_es": "Literales de texto",
+    "title_en": "String and character literals",
+    "summary_es": "Cadenas entre comillas dobles o simples y caracteres individuales.",
+    "summary_en": "Strings in double or single quotes and single character literals.",
+    "code_es": "Algoritmo Cadenas\n  Definir texto1, texto2 Como Cadena\n  Definir letra Como Caracter\n  texto1 <- \"Hola\"\n  texto2 <- 'Mundo'\n  letra <- 'A'\n  Escribir texto1, texto2, letra\nFinAlgoritmo\n",
+    "code_en": "Algorithm Strings\n  Define text1, text2 As String\n  Define letter As Character\n  text1 <- \"Hello\"\n  text2 <- 'World'\n  letter <- 'A'\n  Write text1, text2, letter\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-lexico-comentarios",
+    "title_es": "Comentarios de una línea",
+    "title_en": "Single line comments",
+    "summary_es": "Uso de doble barra para comentarios ignorados por el analizador.",
+    "summary_en": "Double slash comments ignored by the analyzer.",
+    "code_es": "Algoritmo Comentarios\n  Definir x Como Entero // Variable principal\n  x <- 5 // Asignar valor\n  Escribir x // Salida\nFinAlgoritmo\n",
+    "code_en": "Algorithm Comments\n  Define x As Integer // Main variable\n  x <- 5 // Assign value\n  Write x // Output\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-lexico-fin-sentencia",
+    "title_es": "Fin de sentencia",
+    "title_en": "End of statement",
+    "summary_es": "Separación de sentencias con salto de línea o punto y coma.",
+    "summary_en": "Statement separation with newlines or semicolons.",
+    "code_es": "Algoritmo FinSentencia\n  Definir a, b Como Entero; a <- 1; b <- 2\n  Escribir a + b\nFinAlgoritmo\n",
+    "code_en": "Algorithm EndStatement\n  Define a, b As Integer; a <- 1; b <- 2\n  Write a + b\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-lexico-espacios",
+    "title_es": "Espacios y sangría",
+    "title_en": "Whitespace and indentation",
+    "summary_es": "Los espacios y la sangría son libres y no afectan la estructura.",
+    "summary_en": "Whitespace and indentation are free-form and do not alter structure.",
+    "code_es": "Algoritmo Espacios\nDefinir x Como Entero\n    x <- 10\n  Escribir x\nFinAlgoritmo\n",
+    "code_en": "Algorithm Whitespace\nDefine x As Integer\n    x <- 10\n  Write x\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-tipos-cadena-caracter",
+    "title_es": "Cadena y Caracter",
+    "title_en": "String and Character",
+    "summary_es": "Diferencia entre texto de longitud arbitraria y un único carácter.",
+    "summary_en": "Difference between arbitrary text and an individual character.",
+    "code_es": "Algoritmo CadenaYCaracter\n  Definir c Como Caracter\n  Definir s Como Cadena\n  s <- \"Hola\"\n  c <- CaracterEn(s, 0)\n  Escribir c\nFinAlgoritmo\n",
+    "code_en": "Algorithm StringAndCharacter\n  Define c As Character\n  Define s As String\n  s <- \"Hello\"\n  c <- charAt(s, 0)\n  Write c\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-tipos-conversion-implicita",
+    "title_es": "Conversión implícita de entero a real",
+    "title_en": "Implicit conversion from integer to real",
+    "summary_es": "La única conversión automática entre tipos primitivos.",
+    "summary_en": "The only automatic type conversion between primitives.",
+    "code_es": "Algoritmo ConversionImplicita\n  Definir valorEntero Como Entero\n  Definir decimal Como Real\n  valorEntero <- 7\n  decimal <- valorEntero\n  Escribir decimal\nFinAlgoritmo\n",
+    "code_en": "Algorithm ImplicitConversion\n  Define whole As Integer\n  Define decimal As Real\n  whole <- 7\n  decimal <- whole\n  Write decimal\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-tipos-rango",
+    "title_es": "Rango de tipos numéricos",
+    "title_en": "Numeric type range",
+    "summary_es": "Límites numéricos de enteros de 64 bits y coma flotante.",
+    "summary_en": "Bounds of 64-bit integers and floating point reals.",
+    "code_es": "Algoritmo RangoNumerico\n  Definir minEntero, maxEntero Como Entero\n  minEntero <- -9223372036854775807\n  maxEntero <- 9223372036854775807\n  Escribir minEntero, maxEntero\nFinAlgoritmo\n",
+    "code_en": "Algorithm NumericRange\n  Define minInt, maxInt As Integer\n  minInt <- -9223372036854775807\n  maxInt <- 9223372036854775807\n  Write minInt, maxInt\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-operadores-parentesis",
+    "title_es": "Uso de paréntesis en expresiones",
+    "title_en": "Parentheses in expressions",
+    "summary_es": "Alteración del orden natural de evaluación mediante paréntesis.",
+    "summary_en": "Overriding default evaluation order with parentheses.",
+    "code_es": "Algoritmo Parentesis\n  Definir a, b Como Entero\n  a <- 2 + 3 * 4\n  b <- (2 + 3) * 4\n  Escribir a, b\nFinAlgoritmo\n",
+    "code_en": "Algorithm Parentheses\n  Define a, b As Integer\n  a <- 2 + 3 * 4\n  b <- (2 + 3) * 4\n  Write a, b\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-operadores-decisiones",
+    "title_es": "Precedencia en potencias y negaciones",
+    "title_en": "Precedence in powers and negations",
+    "summary_es": "Asociatividad de potencias y prioridad del operador lógico no.",
+    "summary_en": "Power associativity and logical not operator priority.",
+    "code_es": "Algoritmo DecisionesOperadores\n  Definir potencia Como Entero\n  Definir flag Como Logico\n  potencia <- 2 ^ 3 ^ 2\n  flag <- !(2 > 3)\n  Escribir potencia, flag\nFinAlgoritmo\n",
+    "code_en": "Algorithm OperatorDecisions\n  Define power As Integer\n  Define flag As Boolean\n  power <- 2 ^ 3 ^ 2\n  flag <- !(2 > 3)\n  Write power, flag\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-operadores-concatenacion",
+    "title_es": "Operador de suma y concatenación",
+    "title_en": "Addition and concatenation operator",
+    "summary_es": "Suma numérica frente a unión de textos con el operador más.",
+    "summary_en": "Numeric addition versus text concatenation using the plus operator.",
+    "code_es": "Algoritmo Concatenacion\n  Definir n Como Entero\n  Definir t Como Cadena\n  n <- 1 + 2\n  t <- \"A\" + \"B\"\n  Escribir n, t\nFinAlgoritmo\n",
+    "code_en": "Algorithm Concatenation\n  Define n As Integer\n  Define t As String\n  n <- 1 + 2\n  t <- \"A\" + \"B\"\n  Write n, t\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-operadores-cortocircuito",
+    "title_es": "Evaluación en cortocircuito",
+    "title_en": "Short circuit evaluation",
+    "summary_es": "Los operadores lógicos no evalúan el segundo operando si el primero decide el resultado.",
+    "summary_en": "Logical operators skip right operand evaluation when left determines the result.",
+    "code_es": "Algoritmo Cortocircuito\n  Definir n Como Entero\n  Definir valido Como Logico\n  n <- 0\n  valido <- (n <> 0) & (10 / n > 1)\n  Escribir valido\nFinAlgoritmo\n",
+    "code_en": "Algorithm ShortCircuit\n  Define n As Integer\n  Define valid As Boolean\n  n <- 0\n  valid <- (n <> 0) & (10 / n > 1)\n  Write valid\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-declaracion-multiple",
+    "title_es": "Declaración múltiple",
+    "title_en": "Multiple declaration",
+    "summary_es": "Declaración de varias variables del mismo tipo en una sola instrucción.",
+    "summary_en": "Declaring multiple variables of the same type in one statement.",
+    "code_es": "Algoritmo DeclaracionMultiple\n  Definir a, b, c Como Entero\n  a <- 1\n  b <- 2\n  c <- 3\n  Escribir a, b, c\nFinAlgoritmo\n",
+    "code_en": "Algorithm MultipleDeclaration\n  Define a, b, c As Integer\n  a <- 1\n  b <- 2\n  c <- 3\n  Write a, b, c\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-declaracion-orden-evaluacion",
+    "title_es": "Orden de evaluación en la asignación",
+    "title_en": "Evaluation order in assignment",
+    "summary_es": "Evaluación de la expresión derecha antes de modificar el destino izquierdo.",
+    "summary_en": "Evaluating the right hand expression before updating the target.",
+    "code_es": "Algoritmo OrdenEvaluacion\n  Dimension v[3] Como Entero\n  Definir i Como Entero\n  i <- 0\n  v[i] <- 10\n  Escribir v[i]\nFinAlgoritmo\n",
+    "code_en": "Algorithm EvaluationOrder\n  Dimension v[3] As Integer\n  Define i As Integer\n  i <- 0\n  v[i] <- 10\n  Write v[i]\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-io-salida-expresiones",
+    "title_es": "Salida de expresiones",
+    "title_en": "Expression output",
+    "summary_es": "Emisión de múltiples valores separados por comas.",
+    "summary_en": "Emitting multiple comma-separated values.",
+    "code_es": "Algoritmo SalidaExpresiones\n  Escribir\n  Escribir 1, \" + \", 2, \" = \", 3\nFinAlgoritmo\n",
+    "code_en": "Algorithm OutputExpressions\n  Write\n  Write 1, \" + \", 2, \" = \", 3\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-io-separador",
+    "title_es": "Separador manual en salida",
+    "title_en": "Manual output separator",
+    "summary_es": "Escribir no añade espacios automáticos entre expresiones.",
+    "summary_en": "Display does not add automatic spaces between arguments.",
+    "code_es": "Algoritmo SeparadorManual\n  Escribir \"Hola\", \" \", \"Mundo\"\nFinAlgoritmo\n",
+    "code_en": "Algorithm ManualSeparator\n  Write \"Hello\", \" \", \"World\"\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-io-sin-salto",
+    "title_es": "Salida sin salto de línea",
+    "title_en": "Output without newline",
+    "summary_es": "Uso del modificador Sin Saltar para continuar en la misma línea.",
+    "summary_en": "Using the Without Newline modifier to stay on the same line.",
+    "code_es": "Algoritmo SalidaSinSalto\n  Escribir \"Cargando\" Sin Saltar\n  Escribir \"...\"\nFinAlgoritmo\n",
+    "code_en": "Algorithm OutputWithoutNewline\n  Write \"Loading\" Without Newline\n  Write \"...\"\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-io-valores",
+    "title_es": "Formato de salida por tipo",
+    "title_en": "Output format by type",
+    "summary_es": "Representación textual de cada uno de los tipos primitivos.",
+    "summary_en": "Textual representation of each primitive type.",
+    "code_es": "Algoritmo EscribirValores\n  Definir e Como Entero; Definir r Como Real\n  Definir l Como Logico; Definir c Como Caracter\n  Definir s Como Cadena\n  e <- 42; r <- 3.14; l <- Verdadero\n  c <- 'X'; s <- \"Texto\"\n  Escribir e, r, l, c, s\nFinAlgoritmo\n",
+    "code_en": "Algorithm DisplayValues\n  Define e As Integer; Define r As Real\n  Define l As Boolean; Define c As Character\n  Define s As String\n  e <- 42; r <- 3.14; l <- True\n  c <- 'X'; s <- \"Text\"\n  Write e, r, l, c, s\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-io-lectura",
+    "title_es": "Lectura en designadores",
+    "title_en": "Reading into designators",
+    "summary_es": "Lectura de datos desde la entrada estándar hacia variables.",
+    "summary_en": "Reading values from standard input into variables.",
+    "code_es": "Algoritmo LecturaDesignadores\n  Definir a, b Como Entero\n  Leer a, b\n  Escribir a + b\nFinAlgoritmo\n",
+    "code_en": "Algorithm ReadDesignators\n  Define a, b As Integer\n  Read a, b\n  Write a + b\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-control-condicional",
+    "title_es": "Estructura condicional Si-Entonces",
+    "title_en": "Conditional statement If-Then",
+    "summary_es": "Bifurcación simple y anidada según una condición booleana.",
+    "summary_en": "Simple and nested branching based on boolean conditions.",
+    "code_es": "Algoritmo Condicional\n  Definir x Como Entero\n  x <- 5\n  Si x > 0 Entonces\n    Escribir \"Positivo\"\n  Sino\n    Escribir \"No positivo\"\n  FinSi\nFinAlgoritmo\n",
+    "code_en": "Algorithm Conditional\n  Define x As Integer\n  x <- 5\n  If x > 0 Then\n    Write \"Positive\"\n  Else\n    Write \"Not positive\"\n  EndIf\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-control-seleccion",
+    "title_es": "Selección múltiple Según",
+    "title_en": "Multi-way selection Switch",
+    "summary_es": "Ramificación según el valor exacto de una expresión con caso por defecto.",
+    "summary_en": "Branching on exact values with an otherwise case.",
+    "code_es": "Algoritmo SeleccionMultiple\n  Definir opc Como Entero\n  opc <- 2\n  Segun opc Hacer\n    1:\n      Escribir \"Uno\"\n    2:\n      Escribir \"Dos\"\n    De Otro Modo:\n      Escribir \"Otro\"\n  FinSegun\nFinAlgoritmo\n",
+    "code_en": "Algorithm SwitchCase\n  Define opt As Integer\n  opt <- 2\n  Switch opt Do\n    1:\n      Write \"One\"\n    2:\n      Write \"Two\"\n    Otherwise:\n      Write \"Other\"\n  EndSwitch\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-control-mientras",
+    "title_es": "Bucle Mientras",
+    "title_en": "While loop",
+    "summary_es": "Repetición con comprobación de condición al inicio.",
+    "summary_en": "Loop with condition check at the beginning.",
+    "code_es": "Algoritmo BucleMientras\n  Definir n Como Entero\n  n <- 0\n  Mientras n > 0 Hacer\n    Escribir n\n    n <- n - 1\n  FinMientras\nFinAlgoritmo\n",
+    "code_en": "Algorithm WhileLoop\n  Define n As Integer\n  n <- 0\n  While n > 0 Do\n    Write n\n    n <- n - 1\n  EndWhile\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-control-repetir",
+    "title_es": "Bucle Repetir-Hasta Que",
+    "title_en": "Repeat-Until loop",
+    "summary_es": "Repetición con ejecución de al menos una iteración y comprobación al final.",
+    "summary_en": "Loop executing at least once with condition checked at the end.",
+    "code_es": "Algoritmo BucleRepetir\n  Definir n Como Entero\n  n <- 1\n  Repetir\n    Escribir n\n    n <- n + 1\n  Hasta Que n > 1\nFinAlgoritmo\n",
+    "code_en": "Algorithm RepeatLoop\n  Define n As Integer\n  n <- 1\n  Repeat\n    Write n\n    n <- n + 1\n  Until n > 1\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-control-para",
+    "title_es": "Bucle Para con paso",
+    "title_en": "For loop with step",
+    "summary_es": "Iteración contada con paso explícito o implícito.",
+    "summary_en": "Counted iteration with explicit or implicit step.",
+    "code_es": "Algoritmo BuclePara\n  Definir i Como Entero\n  Para i <- 1 Hasta 3 Hacer\n    Escribir i\n  FinPara\n  Para i <- 1 Hasta 5 Con Paso 2 Hacer\n    Escribir i\n  FinPara\nFinAlgoritmo\n",
+    "code_en": "Algorithm ForLoop\n  Define i As Integer\n  For i <- 1 To 3 Do\n    Write i\n  EndFor\n  For i <- 1 To 5 Step 2 Do\n    Write i\n  EndFor\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-control-para-garantias",
+    "title_es": "Garantías del bucle Para",
+    "title_en": "For loop guarantees",
+    "summary_es": "Paso negativo y persistencia de la variable de control al finalizar.",
+    "summary_en": "Negative step behavior and loop variable persistence upon termination.",
+    "code_es": "Algoritmo GarantiasPara\n  Definir i Como Entero\n  Para i <- 5 Hasta 1 Con Paso -2 Hacer\n    Escribir i\n  FinPara\n  Escribir i\nFinAlgoritmo\n",
+    "code_en": "Algorithm ForGuarantees\n  Define i As Integer\n  For i <- 5 To 1 Step -2 Do\n    Write i\n  EndFor\n  Write i\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-arreglos-declaracion",
+    "title_es": "Declaración de arreglos",
+    "title_en": "Array declaration",
+    "summary_es": "Reserva de espacio unidimensional y multidimensional con Dimension.",
+    "summary_en": "One-dimensional and multi-dimensional allocation with Dimension.",
+    "code_es": "Algoritmo DeclaracionArreglo\n  Dimension a[3], b[2, 4] Como Entero\n  a[0] <- 1\n  b[0, 0] <- 2\n  Escribir a[0], b[0, 0]\nFinAlgoritmo\n",
+    "code_en": "Algorithm ArrayDeclaration\n  Dimension a[3], b[2, 4] As Integer\n  a[0] <- 1\n  b[0, 0] <- 2\n  Write a[0], b[0, 0]\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-arreglos-indice-cero",
+    "title_es": "Indexación desde cero",
+    "title_en": "Zero-based indexing",
+    "summary_es": "Primer elemento en posición 0 y último en tamaño menos uno.",
+    "summary_en": "First element at index 0 and last element at size minus one.",
+    "code_es": "Algoritmo IndiceCero\n  Dimension numeros[3] Como Entero\n  Definir i Como Entero\n  Para i <- 0 Hasta 2 Hacer\n    numeros[i] <- i * 10\n    Escribir numeros[i]\n  FinPara\nFinAlgoritmo\n",
+    "code_en": "Algorithm ZeroIndex\n  Dimension numbers[3] As Integer\n  Define i As Integer\n  For i <- 0 To 2 Do\n    numbers[i] <- i * 10\n    Write numbers[i]\n  EndFor\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-arreglos-tamano-constante",
+    "title_es": "Tamaño con expresión constante",
+    "title_en": "Constant expression size",
+    "summary_es": "Las dimensiones deben ser evaluables en tiempo de análisis.",
+    "summary_en": "Array dimensions must be statically evaluable at analysis time.",
+    "code_es": "Algoritmo TamanoConstante\n  Dimension lista[2 + 3] Como Entero\n  lista[0] <- 42\n  Escribir lista[0]\nFinAlgoritmo\n",
+    "code_en": "Algorithm ConstantSize\n  Dimension list[2 + 3] As Integer\n  list[0] <- 42\n  Write list[0]\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-arreglos-acceso",
+    "title_es": "Acceso a elementos de arreglos",
+    "title_en": "Array element access",
+    "summary_es": "Lectura y escritura en posiciones de arreglos y matrices.",
+    "summary_en": "Reading and writing elements in arrays and matrices.",
+    "code_es": "Algoritmo AccesoMatriz\n  Dimension tabla[2, 3] Como Entero\n  tabla[0, 1] <- 99\n  Escribir tabla[0, 1]\nFinAlgoritmo\n",
+    "code_en": "Algorithm MatrixAccess\n  Dimension grid[2, 3] As Integer\n  grid[0, 1] <- 99\n  Write grid[0, 1]\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-subprogramas-dos-papeles",
+    "title_es": "Subprocesos con y sin retorno",
+    "title_en": "Subroutines with and without return",
+    "summary_es": "Procedimientos y funciones bajo una misma sintaxis unificada.",
+    "summary_en": "Procedures and functions under a single unified syntax.",
+    "code_es": "SubProceso Saludar()\n  Escribir \"Hola\"\nFinSubProceso\nSubProceso Duplicar(n Como Entero) Como Entero\n  Retornar n * 2\nFinSubProceso\nAlgoritmo DosPapeles\n  Saludar()\n  Escribir Duplicar(4)\nFinAlgoritmo\n",
+    "code_en": "Subroutine Greet()\n  Write \"Hello\"\nEndSubroutine\nSubroutine Double(n As Integer) As Integer\n  Return n * 2\nEndSubroutine\nAlgorithm TwoRoles\n  Greet()\n  Write Double(4)\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-subprogramas-donde-vive",
+    "title_es": "Ubicación de subprogramas",
+    "title_en": "Subroutine placement",
+    "summary_es": "Declaración de subprocesos como hermanos del algoritmo principal.",
+    "summary_en": "Declaring subroutines as siblings to the main algorithm.",
+    "code_es": "SubProceso Mensaje()\n  Escribir \"Hermano del algoritmo\"\nFinSubProceso\nAlgoritmo DondeVive\n  Mensaje()\nFinAlgoritmo\n",
+    "code_en": "Subroutine Message()\n  Write \"Algorithm sibling\"\nEndSubroutine\nAlgorithm WhereLives\n  Message()\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-subprogramas-parametros",
+    "title_es": "Parámetros de subprogramas",
+    "title_en": "Subroutine parameters",
+    "summary_es": "Paso de tipos escalares y arreglos como argumentos.",
+    "summary_en": "Passing scalars and arrays as arguments.",
+    "code_es": "SubProceso Procesar(v[] Como Entero, n Como Entero)\n  Escribir v[0] + n\nFinSubProceso\nAlgoritmo ParametrosArreglo\n  Dimension datos[2] Como Entero\n  datos[0] <- 10\n  Procesar(datos, 5)\nFinAlgoritmo\n",
+    "code_en": "Subroutine Process(v[] As Integer, n As Integer)\n  Write v[0] + n\nEndSubroutine\nAlgorithm ArrayParameters\n  Dimension data[2] As Integer\n  data[0] <- 10\n  Process(data, 5)\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-subprogramas-paso",
+    "title_es": "Paso por valor y por referencia",
+    "title_en": "Pass by value and by reference",
+    "summary_es": "Modificadores Por Valor y Por Referencia en parámetros escalares.",
+    "summary_en": "By Value and By Reference modifiers on scalar parameters.",
+    "code_es": "SubProceso ProbarPaso(va Como Entero Por Valor, vb Como Entero Por Referencia)\n  va <- 10\n  vb <- 20\nFinSubProceso\nAlgoritmo PasoParametros\n  Definir n1, n2 Como Entero\n  n1 <- 1\n  n2 <- 2\n  ProbarPaso(n1, n2)\n  Escribir n1, n2\nFinAlgoritmo\n",
+    "code_en": "Subroutine TestPass(va As Integer By Value, vb As Integer By Reference)\n  va <- 10\n  vb <- 20\nEndSubroutine\nAlgorithm ParameterPassing\n  Define n1, n2 As Integer\n  n1 <- 1\n  n2 <- 2\n  TestPass(n1, n2)\n  Write n1, n2\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-subprogramas-paso-arreglos",
+    "title_es": "Paso de arreglos por referencia",
+    "title_en": "Array passing by reference",
+    "summary_es": "Los arreglos siempre se pasan por referencia automáticamente.",
+    "summary_en": "Arrays are always passed by reference automatically.",
+    "code_es": "SubProceso Modificar(v[] Como Entero)\n  v[0] <- 99\nFinSubProceso\nAlgoritmo PasoArreglos\n  Dimension lista[2] Como Entero\n  lista[0] <- 1\n  Modificar(lista)\n  Escribir lista[0]\nFinAlgoritmo\n",
+    "code_en": "Subroutine Modify(v[] As Integer)\n  v[0] <- 99\nEndSubroutine\nAlgorithm ArrayPassing\n  Dimension list[2] As Integer\n  list[0] <- 1\n  Modify(list)\n  Write list[0]\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-subprogramas-retorno",
+    "title_es": "Instrucción de retorno",
+    "title_en": "Return statement",
+    "summary_es": "Devolución de valores mediante la instrucción Retornar.",
+    "summary_en": "Returning values using the Return statement.",
+    "code_es": "SubProceso Signo(n Como Entero) Como Entero\n  Si n >= 0 Entonces\n    Retornar 1\n  Sino\n    Retornar -1\n  FinSi\nFinSubProceso\nAlgoritmo RetornoSubprograma\n  Escribir Signo(5), Signo(-3)\nFinAlgoritmo\n",
+    "code_en": "Subroutine Sign(n As Integer) As Integer\n  If n >= 0 Then\n    Return 1\n  Else\n    Return -1\n  EndIf\nEndSubroutine\nAlgorithm SubroutineReturn\n  Write Sign(5), Sign(-3)\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-subprogramas-llamada",
+    "title_es": "Llamada a subprogramas",
+    "title_en": "Subroutine invocation",
+    "summary_es": "Invocación como sentencia independiente o dentro de una expresión.",
+    "summary_en": "Invoking as a standalone statement or within an expression.",
+    "code_es": "SubProceso Calcular(n Como Entero) Como Entero\n  Retornar n * 2\nFinSubProceso\nAlgoritmo LlamadaSubprograma\n  Definir res Como Entero\n  res <- Calcular(5)\n  Calcular(10)\n  Escribir res\nFinAlgoritmo\n",
+    "code_en": "Subroutine Calculate(n As Integer) As Integer\n  Return n * 2\nEndSubroutine\nAlgorithm SubroutineCall\n  Define res As Integer\n  res <- Calculate(5)\n  Calculate(10)\n  Write res\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-subprogramas-recursion",
+    "title_es": "Recursión en subprogramas",
+    "title_en": "Subroutine recursion",
+    "summary_es": "Llamadas recursivas directas con condición de parada.",
+    "summary_en": "Direct recursive calls with a base case.",
+    "code_es": "SubProceso Factorial(n Como Entero) Como Entero\n  Si n <= 1 Entonces\n    Retornar 1\n  Sino\n    Retornar n * Factorial(n - 1)\n  FinSi\nFinSubProceso\nAlgoritmo Recursion\n  Escribir Factorial(4)\nFinAlgoritmo\n",
+    "code_en": "Subroutine Factorial(n As Integer) As Integer\n  If n <= 1 Then\n    Return 1\n  Else\n    Return n * Factorial(n - 1)\n  EndIf\nEndSubroutine\nAlgorithm Recursion\n  Write Factorial(4)\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-tipos-relaciones",
+    "title_es": "Compatibilidad de tipos",
+    "title_en": "Type compatibility",
+    "summary_es": "Asignación permitida de entero a real y comprobaciones estrictas.",
+    "summary_en": "Allowed integer to real promotion and strict checks.",
+    "code_es": "Algoritmo RelacionesTipos\n  Definir e Como Entero\n  Definir r Como Real\n  e <- 5\n  r <- e\n  Escribir r\nFinAlgoritmo\n",
+    "code_en": "Algorithm TypeRelationships\n  Define e As Integer\n  Define r As Real\n  e <- 5\n  r <- e\n  Write r\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-tipos-cinco-reglas",
+    "title_es": "Reglas de tipos en operaciones",
+    "title_en": "Type rules in operations",
+    "summary_es": "División real, división entera y módulo según los tipos de operandos.",
+    "summary_en": "Real division, integer division, and modulus typing rules.",
+    "code_es": "Algoritmo CincoReglas\n  Definir cociente Como Real\n  Definir divisionEntera, resto Como Entero\n  cociente <- 7 / 2\n  divisionEntera <- 7 div 2\n  resto <- 7 mod 2\n  Escribir cociente, divisionEntera, resto\nFinAlgoritmo\n",
+    "code_en": "Algorithm FiveRules\n  Define quotient As Real\n  Define intDiv, remainder As Integer\n  quotient <- 7 / 2\n  intDiv <- 7 div 2\n  remainder <- 7 mod 2\n  Write quotient, intDiv, remainder\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-tipos-inferencia",
+    "title_es": "Inferencia de tipos en perfil flexible",
+    "title_en": "Type inference in flexible profile",
+    "summary_es": "Deducción automática del tipo de variables no declaradas.",
+    "summary_en": "Automatic type deduction for undeclared variables.",
+    "code_es": "Algoritmo InferenciaFlexible\n  x <- 10\n  Escribir x + 5\nFinAlgoritmo\n",
+    "code_en": "Algorithm FlexibleInference\n  x <- 10\n  Write x + 5\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-tipos-arreglos-objetos",
+    "title_es": "Semántica de tipos por referencia",
+    "title_en": "Reference type semantics",
+    "summary_es": "Los objetos y arreglos se gestionan mediante referencias.",
+    "summary_en": "Objects and arrays are managed through references.",
+    "code_es": "Clase Punto\n  Publico Definir cx Como Entero\nFinClase\nAlgoritmo ArreglosYObjetos\n  Definir p1, p2 Como Punto\n  p1 <- Nuevo Punto()\n  p1.cx <- 10\n  p2 <- p1\n  Escribir p2.cx\nFinAlgoritmo\n",
+    "code_en": "Class Point\n  Public Define cx As Integer\nEndClass\nAlgorithm ArraysAndObjects\n  Define p1, p2 As Point\n  p1 <- New Point()\n  p1.cx <- 10\n  p2 <- p1\n  Write p2.cx\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-funciones-nombre-no-reservado",
+    "title_es": "Nombres de funciones no reservados",
+    "title_en": "Non-reserved function names",
+    "summary_es": "Las funciones del sistema pueden sombrearse con variables locales.",
+    "summary_en": "Built-in functions can be shadowed by local variables.",
+    "code_es": "Algoritmo SombraFuncion\n  Definir Longitud Como Entero\n  Longitud <- 42\n  Escribir Longitud\nFinAlgoritmo\n",
+    "code_en": "Algorithm FunctionShadowing\n  Define length As Integer\n  length <- 42\n  Write length\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-funciones-matematicas",
+    "title_es": "Funciones matemáticas incorporadas",
+    "title_en": "Built-in math functions",
+    "summary_es": "Truncamiento y redondeo sobre números reales.",
+    "summary_en": "Truncation and rounding over real numbers.",
+    "code_es": "Algoritmo FuncionesMatematicas\n  Definir t, r Como Entero\n  t <- trunc(3.7)\n  r <- redon(3.7)\n  Escribir t, r\nFinAlgoritmo\n",
+    "code_en": "Algorithm MathFunctions\n  Define t, r As Integer\n  t <- trunc(3.7)\n  r <- round(3.7)\n  Write t, r\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-funciones-sistema-tipos",
+    "title_es": "Funciones de conversión y texto",
+    "title_en": "Conversion and text functions",
+    "summary_es": "Conversión a texto e indexación de caracteres.",
+    "summary_en": "Text conversion and character indexing.",
+    "code_es": "Algoritmo FuncionesTipo\n  Definir txt Como Cadena\n  Definir prim Como Caracter\n  txt <- ATexto(123)\n  prim <- CaracterEn(txt, 0)\n  Escribir txt, prim\nFinAlgoritmo\n",
+    "code_en": "Algorithm TypeFunctions\n  Define txt As String\n  Define first As Character\n  txt <- toText(123)\n  first <- charAt(txt, 0)\n  Write txt, first\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-funciones-aleatorio",
+    "title_es": "Función aleatoria",
+    "title_en": "Random function",
+    "summary_es": "Generación de números enteros aleatorios dentro de un rango.",
+    "summary_en": "Generating random integers within a range.",
+    "code_es": "Algoritmo FuncionAleatorio\n  Definir r1, r2 Como Real\n  r1 <- azar()\n  r2 <- azar()\n  Escribir r1, r2\nFinAlgoritmo\n",
+    "code_en": "Algorithm RandomFunction\n  Define r1, r2 As Real\n  r1 <- random()\n  r2 <- random()\n  Write r1, r2\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-clases-declaracion",
+    "title_es": "Declaración de clases",
+    "title_en": "Class declaration",
+    "summary_es": "Definición de clases con atributos públicos y miembros.",
+    "summary_en": "Class definitions with public attributes and members.",
+    "code_es": "Clase Contador\n  Publico Definir total Como Entero\nFinClase\nAlgoritmo DeclaracionClase\n  Definir c Como Contador\n  c <- Nuevo Contador()\n  c.total <- 5\n  Escribir c.total\nFinAlgoritmo\n",
+    "code_en": "Class Counter\n  Public Define total As Integer\nEndClass\nAlgorithm ClassDeclaration\n  Define c As Counter\n  c <- New Counter()\n  c.total <- 5\n  Write c.total\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-clases-atributos",
+    "title_es": "Visibilidad de atributos",
+    "title_en": "Attribute visibility",
+    "summary_es": "Modificadores Publico y Privado en variables miembro de clases.",
+    "summary_en": "Public and Private modifiers on class member variables.",
+    "code_es": "Clase Cuenta\n  Publico Definir titular Como Cadena\n  Privado Definir saldo Como Entero\nFinClase\nAlgoritmo AtributosVisibilidad\n  Definir c Como Cuenta\n  c <- Nuevo Cuenta()\n  c.titular <- \"Ana\"\n  Escribir c.titular\nFinAlgoritmo\n",
+    "code_en": "Class Account\n  Public Define holder As String\n  Private Define balance As Integer\nEndClass\nAlgorithm AttributesVisibility\n  Define c As Account\n  c <- New Account()\n  c.holder <- \"Ana\"\n  Write c.holder\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-clases-metodos",
+    "title_es": "Métodos de clase",
+    "title_en": "Class methods",
+    "summary_es": "Definición de métodos con parámetros y valor de retorno.",
+    "summary_en": "Defining methods with parameters and return values.",
+    "code_es": "Clase Calculadora\n  Metodo Sumar(a Como Entero, b Como Entero) Como Entero\n    Retornar a + b\n  FinMetodo\nFinClase\nAlgoritmo MetodosClase\n  Definir c Como Calculadora\n  c <- Nuevo Calculadora()\n  Escribir c.Sumar(3, 4)\nFinAlgoritmo\n",
+    "code_en": "Class Calculator\n  Method Add(a As Integer, b As Integer) As Integer\n    Return a + b\n  EndMethod\nEndClass\nAlgorithm ClassMethods\n  Define c As Calculator\n  c <- New Calculator()\n  Write c.Add(3, 4)\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-clases-constructor",
+    "title_es": "Constructor de clase",
+    "title_en": "Class constructor",
+    "summary_es": "Inicialización de estado con el método Constructor y acceso con Este.",
+    "summary_en": "State initialization with Constructor and self reference via This.",
+    "code_es": "Clase Punto\n  Publico Definir cx Como Entero\n  Publico Definir cy Como Entero\n  Metodo Constructor(px Como Entero, py Como Entero)\n    Este.cx <- px; Este.cy <- py\n  FinMetodo\nFinClase\nAlgoritmo ConstructorClase\n  Definir p Como Punto\n  p <- Nuevo Punto(2, 3)\n  Escribir p.cx + p.cy\nFinAlgoritmo\n",
+    "code_en": "Class Point\n  Public Define cx As Integer\n  Public Define cy As Integer\n  Method Constructor(px As Integer, py As Integer)\n    This.cx <- px; This.cy <- py\n  EndMethod\nEndClass\nAlgorithm ClassConstructor\n  Define p As Point\n  p <- New Point(2, 3)\n  Write p.cx + p.cy\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-clases-instanciacion",
+    "title_es": "Instanciación de objetos",
+    "title_en": "Object instantiation",
+    "summary_es": "Creación de instancias de clase utilizando el operador Nuevo.",
+    "summary_en": "Creating class instances using the New operator.",
+    "code_es": "Clase Caja\n  Publico Definir peso Como Entero\nFinClase\nAlgoritmo InstanciacionObjeto\n  Definir c Como Caja\n  c <- Nuevo Caja()\n  c.peso <- 10\n  Escribir c.peso\nFinAlgoritmo\n",
+    "code_en": "Class Box\n  Public Define weight As Integer\nEndClass\nAlgorithm ObjectInstantiation\n  Define c As Box\n  c <- New Box()\n  c.weight <- 10\n  Write c.weight\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-clases-este-super",
+    "title_es": "Acceso a Este y Super",
+    "title_en": "Accessing This and Super",
+    "summary_es": "Invocación a métodos de la superclase y autorreferencia con Este.",
+    "summary_en": "Invoking superclass methods and self reference with This.",
+    "code_es": "Clase Base\n  Metodo M()\n  FinMetodo\nFinClase\nClase Derivada HeredaDe Base\n  Metodo M()\n    Super.M()\n  FinMetodo\nFinClase\nAlgoritmo ProbarSuper\n  Definir d Como Derivada; d <- Nuevo Derivada(); d.M()\nFinAlgoritmo\n",
+    "code_en": "Class Base\n  Method M()\n  EndMethod\nEndClass\nClass Derived Inherits From Base\n  Method M()\n    Super.M()\n  EndMethod\nEndClass\nAlgorithm TestSuper\n  Define d As Derived; d <- New Derived(); d.M()\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-clases-miembro-sobrescritura",
+    "title_es": "Sobrescritura de métodos",
+    "title_en": "Method overriding",
+    "summary_es": "Especialización de comportamiento en clases derivadas.",
+    "summary_en": "Specializing behavior in derived classes.",
+    "code_es": "Clase Animal\n  Metodo Hablar()\n  FinMetodo\nFinClase\nClase Perro HeredaDe Animal\n  Metodo Hablar()\n    Escribir \"Guau\"\n  FinMetodo\nFinClase\nAlgoritmo Sobrescritura\n  Definir a Como Animal; a <- Nuevo Perro(); a.Hablar()\nFinAlgoritmo\n",
+    "code_en": "Class Animal\n  Method Speak()\n  EndMethod\nEndClass\nClass Dog Inherits From Animal\n  Method Speak()\n    Write \"Woof\"\n  EndMethod\nEndClass\nAlgorithm Overriding\n  Define a As Animal; a <- New Dog(); a.Speak()\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-clases-como-tipos",
+    "title_es": "Clases como tipos en subprogramas",
+    "title_en": "Classes as types in subroutines",
+    "summary_es": "Uso de tipos de clase en parámetros y tipos de retorno de funciones.",
+    "summary_en": "Using class types in parameters and return types.",
+    "code_es": "Clase Valor\n  Publico Definir n Como Entero\nFinClase\nSubProceso Imprimir(v Como Valor)\n  Escribir v.n\nFinSubProceso\nAlgoritmo ClasesComoTipos\n  Definir v Como Valor\n  v <- Nuevo Valor()\n  v.n <- 42\n  Imprimir(v)\nFinAlgoritmo\n",
+    "code_en": "Class Value\n  Public Define n As Integer\nEndClass\nSubroutine PrintVal(v As Value)\n  Write v.n\nEndSubroutine\nAlgorithm ClassesAsTypes\n  Define v As Value\n  v <- New Value()\n  v.n <- 42\n  PrintVal(v)\nEndAlgorithm\n"
+  },
+  {
+    "id": "example-esp-clases-copia",
+    "title_es": "Copia superficial de objetos",
+    "title_en": "Shallow copy of objects",
+    "summary_es": "Duplicación de instancias mediante CopiaSuperficial.",
+    "summary_en": "Duplicating instances using ShallowCopy.",
+    "code_es": "Clase Item\n  Publico Definir valor Como Entero\nFinClase\nAlgoritmo CopiaSuperficialEjemplo\n  Definir i1, i2 Como Item\n  i1 <- Nuevo Item()\n  i1.valor <- 10\n  i2 <- Copiar(i1)\n  i2.valor <- 20\n  Escribir i1.valor, i2.valor\nFinAlgoritmo\n",
+    "code_en": "Class Item\n  Public Define value As Integer\nEndClass\nAlgorithm ShallowCopyExample\n  Define i1, i2 As Item\n  i1 <- New Item()\n  i1.value <- 10\n  i2 <- copy(i1)\n  i2.value <- 20\n  Write i1.value, i2.value\nEndAlgorithm\n"
+  }
+]
