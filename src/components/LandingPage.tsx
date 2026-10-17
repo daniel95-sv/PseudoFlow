@@ -27,7 +27,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <svg viewBox="0 1 95 95" width="28" height="28" className="site-header__symbol" fill="currentColor">
               <path d="M 10,79 H 36 A 7,7 0 0 1 43,86 V 86 A 7,7 0 0 1 36,93 H 10 A 7,7 0 0 1 3,86 V 86 A 7,7 0 0 1 10,79 Z M 36,53 H 36 A 7,7 0 0 1 43,60 V 86 A 7,7 0 0 1 36,93 H 36 A 7,7 0 0 1 29,86 V 60 A 7,7 0 0 1 36,53 Z M 36,53 H 62 A 7,7 0 0 1 69,60 V 60 A 7,7 0 0 1 62,67 H 36 A 7,7 0 0 1 29,60 V 60 A 7,7 0 0 1 36,53 Z M 62,27 H 62 A 7,7 0 0 1 69,34 V 60 A 7,7 0 0 1 62,67 H 62 A 7,7 0 0 1 55,60 V 34 A 7,7 0 0 1 62,27 Z M 62,27 H 88 A 7,7 0 0 1 95,34 V 34 A 7,7 0 0 1 88,41 H 62 A 7,7 0 0 1 55,34 V 34 A 7,7 0 0 1 62,27 Z M 88,1 H 88 A 7,7 0 0 1 95,8 V 34 A 7,7 0 0 1 88,41 H 88 A 7,7 0 0 1 81,34 V 8 A 7,7 0 0 1 88,1 Z M 0,86 A 10,10 0 1 1 20,86 A 10,10 0 1 1 0,86 Z M 83.6584,3.1708 A 3,3 0 0 1 88,5.8541 L 88,22.1459 A 3,3 0 0 1 83.6584,24.8292 L 67.3666,16.6833 A 3,3 0 0 1 67.3666,11.3167 Z" />
             </svg>
-            <span>PseudoLearn</span>
+            <span>PseudoFlow</span>
           </a>
 
           <nav className="site-header__nav">
@@ -63,8 +63,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </h1>
           <p className="pl-lede">
             {isEs
-              ? 'PseudoLearn ejecuta tu pseudocódigo una sentencia por vez y mantiene el mismo paso resaltado en el código, el ordinograma, el estructograma y la tabla de prueba de escritorio. Detrás hay una ruta de 15 módulos con 95 ejercicios que se comprueban solos.'
-              : 'PseudoLearn executes your pseudocode statement by statement and keeps the same step highlighted across code, flowchart, structogram, and desk trace table. Includes 15 modules and 95 auto-checking exercises.'}
+              ? 'PseudoFlow ejecuta tu pseudocódigo una sentencia por vez y mantiene el mismo paso resaltado en el código, el ordinograma, el estructograma y la tabla de prueba de escritorio. Detrás hay una ruta de 15 módulos con 95 ejercicios que se comprueban solos.'
+              : 'PseudoFlow executes your pseudocode statement by statement and keeps the same step highlighted across code, flowchart, structogram, and desk trace table. Includes 15 modules and 95 auto-checking exercises.'}
           </p>
           <div className="home-hero__actions">
             <button className="pl-btn pl-btn--on-field" onClick={onOpenIDE}>
@@ -192,7 +192,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </h2>
           <p className="surfaces__lead">
             {isEs
-              ? 'En PseudoLearn las cuatro superficies son proyecciones del mismo programa, generadas por el motor: cuando el intérprete avanza, el resaltado se mueve en todas a la vez. También hay un diagrama de clases UML cuando el programa usa objetos.'
+              ? 'En PseudoFlow las cuatro superficies son proyecciones del mismo programa, generadas por el motor: cuando el intérprete avanza, el resaltado se mueve en todas a la vez. También hay un diagrama de clases UML cuando el programa usa objetos.'
               : 'All four surfaces are direct projections of your program: as the interpreter advances, the highlight updates across all four at once.'}
           </p>
 
@@ -338,7 +338,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* Six Key Features */}
       <section className="surfaces" id="features">
         <div className="pl-container">
-          <p className="pl-overline pl-overline--brand">{isEs ? 'Por qué esta herramienta' : 'Why PseudoLearn'}</p>
+          <p className="pl-overline pl-overline--brand">{isEs ? 'Por qué esta herramienta' : 'Why PseudoFlow'}</p>
           <h2 className="pl-section-title">{isEs ? 'Seis cosas que un papel no puede hacer.' : 'Six things paper cannot do.'}</h2>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '2.5rem' }}>
@@ -397,9 +397,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <footer style={{ background: 'var(--pl-field)', color: '#fff', padding: '3rem 0', borderTop: '1px solid var(--pl-field-deep)' }}>
         <div className="pl-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '0.3rem' }}>PseudoLearn Web Unificada</div>
+            <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '0.3rem' }}>PseudoFlow Web</div>
             <div style={{ fontSize: '0.85rem', color: '#92dada' }}>
-              Clon y unificación web basado en la plataforma oficial y el software de escritorio.
+              Editor de pseudocódigo en línea, diagramas de flujo y pruebas de escritorio en tiempo real.
             </div>
           </div>
           <button className="pl-btn pl-btn--on-field" onClick={onOpenIDE}>

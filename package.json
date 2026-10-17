@@ -1,7 +1,8 @@
 {
-  "name": "web-app-clone",
+  "name": "pseudoflow",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Editor de pseudocódigo interactivo, diagramas de flujo y pruebas de escritorio en tiempo real",
   "type": "module",
   "scripts": {
     "dev": "vite",

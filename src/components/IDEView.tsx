@@ -300,7 +300,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
             <span>{isEs ? 'Inicio' : 'Home'}</span>
           </button>
           <span className="pl-mono" style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--pl-brand)' }}>
-            {selectedExercise ? selectedExercise.title_es : 'PseudoLearn IDE'}
+            {selectedExercise ? selectedExercise.title_es : 'PseudoFlow IDE'}
           </span>
         </div>
 

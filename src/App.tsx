@@ -5,22 +5,22 @@ import { IDEView } from './components/IDEView';
 export function App() {
   const [view, setView] = useState<'landing' | 'ide'>('landing');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('pseudolearn-theme');
+    const saved = localStorage.getItem('pseudoflow-theme');
     if (saved === 'light' || saved === 'dark') return saved;
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'dark';
   });
   const [lang, setLang] = useState<'es' | 'en'>(() => {
-    const saved = localStorage.getItem('pseudolearn-lang');
+    const saved = localStorage.getItem('pseudoflow-lang');
     return saved === 'en' ? 'en' : 'es';
   });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('pseudolearn-theme', theme);
+    localStorage.setItem('pseudoflow-theme', theme);
   }, [theme]);
 
   useEffect(() => {
-    localStorage.setItem('pseudolearn-lang', lang);
+    localStorage.setItem('pseudoflow-lang', lang);
   }, [lang]);
 
   // Support direct hash navigation

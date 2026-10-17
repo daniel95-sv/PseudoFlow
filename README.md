@@ -1,8 +1,13 @@
-# PseudoLearn - Web App Unificada e Independiente
+# PseudoFlow - Editor de Pseudocódigo Online y Diagramas de Flujo
 
-Aplicación web integral desarrollada a partir de la ingeniería inversa del sitio web oficial ([pseudolearn.app](https://pseudolearn.app/)) y del instalador de escritorio (`PseudoLearn-Setup.exe`).
+![PseudoFlow Banner](./public/og-image.png)
 
-Esta solución unifica la experiencia de presentación web con un **Entorno de Desarrollo Integrado (IDE)** en el navegador, ejecutándose **100% en el lado del cliente** sin dependencias de backend ni instalación previa.
+> **Sitio Oficial / Despliegue en Vivo**: [https://pseudoflow.pages.dev/](https://pseudoflow.pages.dev/)  
+> **Repositorio GitHub**: [https://github.com/daniel95-sv/PseudoFlow.git](https://github.com/daniel95-sv/PseudoFlow.git)
+
+**PseudoFlow** es una aplicación web interactiva que unifica un entorno didáctico completo para aprender a programar ejecutando pseudocódigo en el navegador, generando automáticamente diagramas de flujo, estructogramas de Nassi-Shneiderman y tablas de prueba de escritorio sincronizadas en tiempo real.
+
+Se ejecuta **100% en el lado del cliente** sin necesidad de instalación ni backend.
 
 ---
 
@@ -32,42 +37,37 @@ Esta solución unifica la experiencia de presentación web con un **Entorno de D
    - **95 Ejercicios Guiados**: Con enunciados completos, código inicial, soluciones de referencia y **suite de validación automática** de casos de prueba visibles y ocultos.
    - **86 Ejemplos Ejecutables**: Catálogo completo de algoritmos listos para cargar y ejecutar con un clic.
 
-5. **Diseño y Estética Fiel**:
-   - Paleta cromática oficial extraída del sitio web (tokens `--pl-canvas`, `--pl-field`, `--pl-brand`, etc.).
-   - Soporte completo para **Modo Oscuro** y **Modo Claro**.
+5. **Diseño y Estética**:
+   - Paleta cromática slate navy moderna con sistema de diseño de tokens y modo oscuro/claro nativo.
    - Soporte bilingüe (**Español** e **Inglés**) para palabras reservadas del pseudocódigo y de la interfaz.
 
 ---
 
-## 🛠️ Tecnologías Utilizadas
+## 🛠️ Tecnologías
 
 - **Framework**: React 19 + TypeScript
 - **Bundler**: Vite 6
 - **Iconografía**: Lucide React
-- **Estilos**: Vanilla CSS con sistema de diseño de tokens y variables nativas
+- **Estilos**: Vanilla CSS con variables CSS nativas
+- **Despliegue**: Cloudflare Pages (`https://pseudoflow.pages.dev/`)
 
 ---
 
 ## 📦 Instalación y Ejecución Local
 
-### Prerrequisitos
-- Node.js >= 18.x (probado en Node.js v24.14.0)
-- npm >= 9.x
-
-### Pasos para iniciar
-
 ```bash
-# 1. Navegar al directorio del proyecto
-cd C:/Users/MyPC/Documents/Pseudolearn/web-app-clone
+# 1. Clonar el repositorio
+git clone https://github.com/daniel95-sv/PseudoFlow.git
+cd PseudoFlow
 
-# 2. Instalar dependencias (si aún no se han instalado)
+# 2. Instalar dependencias
 npm install
 
 # 3. Iniciar el servidor de desarrollo Vite
 npm run dev
 ```
 
-El servidor iniciará localmente (típicamente en `http://localhost:5173/`). Abre esta URL en cualquier navegador moderno.
+Abre `http://localhost:5173/` en tu navegador.
 
 ### Compilar para Producción
 
@@ -75,55 +75,29 @@ El servidor iniciará localmente (típicamente en `http://localhost:5173/`). Abr
 npm run build
 ```
 
-Los archivos optimizados para producción se generarán en la carpeta `dist/`. Pueden desplegarse en cualquier hosting estático (Vercel, Netlify, GitHub Pages, Cloudflare Pages, Firebase Hosting, etc.).
+Los archivos optimizados se generarán en la carpeta `dist/`.
 
 ---
 
-## 📂 Estructura del Proyecto
+## 🌐 Despliegue en Cloudflare Pages
 
-```
-web-app-clone/
-├── index.html                   # Entrada HTML con metadatos y fuentes
-├── package.json                 # Dependencias y scripts
-├── vite.config.ts               # Configuración del bundler Vite
-├── src/
-│   ├── main.tsx                 # Montaje de la aplicación
-│   ├── App.tsx                  # Enrutador principal (Landing <-> IDE)
-│   ├── index.css                # Sistema de diseño, tokens y estilos
-│   ├── data/                    # Datos extraídos por ingeniería inversa
-│   │   ├── modules.json         # 15 módulos pedagógicos
-│   │   ├── exercises.json       # 95 ejercicios con casos de prueba
-│   │   ├── specifications.json  # Especificación formal del lenguaje
-│   │   └── examples.json        # 86 ejemplos de código ejecutables
-│   ├── engine/                  # Motor de ejecución e interpretación
-│   │   ├── types.ts             # Tipos del AST y del entorno de ejecución
-│   │   ├── lexer.ts             # Tokenizador bilingüe (ES / EN)
-│   │   ├── parser.ts            # Parser recursivo generador de AST
-│   │   ├── interpreter.ts       # Intérprete paso a paso con tabla de traza
-│   │   ├── flowchart.ts         # Generador de geometría para diagramas de flujo
-│   │   ├── structogram.ts       # Generador de bloques Nassi-Shneiderman
-│   │   └── transpiler.ts        # Transpilador a Python 3 y Rust
-│   └── components/              # Componentes de interfaz de usuario
-│       ├── LandingPage.tsx      # Portada web institucional interactiva
-│       ├── IDEView.tsx          # Entorno de desarrollo completo en navegador
-│       ├── FlowchartView.tsx    # Visualizador SVG de ordinograma
-│       ├── StructogramView.tsx  # Visualizador de estructograma
-│       ├── TraceTableView.tsx   # Visualizador de tabla de escritorio
-│       ├── UmlClassView.tsx     # Visualizador de diagrama de clases UML
-│       └── CodeExportView.tsx   # Panel de exportación a Python y Rust
+### Opción A: Conexión Automática con GitHub (Recomendada)
+1. En [Cloudflare Dashboard](https://dash.cloudflare.com/) ve a **Workers & Pages** > **Create application** > **Pages** > **Connect to Git**.
+2. Selecciona el repositorio `daniel95-sv/PseudoFlow`.
+3. Configuración de Build:
+   - **Framework preset**: `Vite`
+   - **Build command**: `npm run build`
+   - **Build output directory**: `dist`
+4. Clic en **Save and Deploy**. Cloudflare generará tu dominio `https://pseudoflow.pages.dev/`.
+
+### Opción B: Despliegue Directo con Wrangler
+```bash
+npm run build
+npx wrangler pages deploy dist --project-name=pseudoflow
 ```
 
 ---
 
-## 🔬 Proceso de Ingeniería Inversa (REA)
+## 📄 Licencia
 
-1. **Inspección de Binarios**:
-   - `PseudoLearn-Setup.exe` fue identificado mediante análisis de cabeceras PE y firmas como un instalador **Inno Setup 6.7.0** que empaqueta una aplicación **Flutter Windows x64 (Dart AOT)**.
-   - Se empleó el descompilador de instaladores `innounp-2` para extraer 453 archivos internos del instalador.
-2. **Extracción de Conocimiento Pedagógico**:
-   - Se localizaron los activos originales en `data/flutter_assets/assets/knowledge/`.
-   - Se extrajeron y validaron los 15 módulos, los 95 ejercicios guiados con sus pruebas unitarias visibles y ocultas, las 11 especificaciones del lenguaje y los 86 ejemplos.
-3. **Análisis Web**:
-   - Se extrajeron los tokens de diseño, tipografías y estructura visual del sitio oficial [pseudolearn.app](https://pseudolearn.app/).
-4. **Reconstrucción Limpia**:
-   - Se programó un motor de ejecución en TypeScript sin dependencias externas pesadas, reproduciendo exactamente la semántica de evaluación paso a paso y la sincronización cuádruple en pantalla.
+Código abierto bajo licencia MIT. Desarrollado con fines educativos y de divulgación algorítmica.

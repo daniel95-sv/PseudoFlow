@@ -2,11 +2,34 @@
 <html lang="es" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 1 95 95'%3E%3Cpath fill='%236bbdff' d='M 10,79 H 36 A 7,7 0 0 1 43,86 V 86 A 7,7 0 0 1 36,93 H 10 A 7,7 0 0 1 3,86 V 86 A 7,7 0 0 1 10,79 Z M 36,53 H 36 A 7,7 0 0 1 43,60 V 86 A 7,7 0 0 1 36,93 H 36 A 7,7 0 0 1 29,86 V 60 A 7,7 0 0 1 36,53 Z M 36,53 H 62 A 7,7 0 0 1 69,60 V 60 A 7,7 0 0 1 62,67 H 36 A 7,7 0 0 1 29,60 V 60 A 7,7 0 0 1 36,53 Z M 62,27 H 62 A 7,7 0 0 1 69,34 V 60 A 7,7 0 0 1 62,67 H 62 A 7,7 0 0 1 55,60 V 34 A 7,7 0 0 1 62,27 Z M 62,27 H 88 A 7,7 0 0 1 95,34 V 34 A 7,7 0 0 1 88,41 H 62 A 7,7 0 0 1 55,34 V 34 A 7,7 0 0 1 62,27 Z M 88,1 H 88 A 7,7 0 0 1 95,8 V 34 A 7,7 0 0 1 88,41 H 88 A 7,7 0 0 1 81,34 V 8 A 7,7 0 0 1 88,1 Z M 0,86 A 10,10 0 1 1 20,86 A 10,10 0 1 1 0,86 Z M 83.6584,3.1708 A 3,3 0 0 1 88,5.8541 L 88,22.1459 A 3,3 0 0 1 83.6584,24.8292 L 67.3666,16.6833 A 3,3 0 0 1 67.3666,11.3167 Z'/%3E%3C/svg%3E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="PseudoLearn - Aprende a programar viendo lo que hace tu programa. Entorno web independiente con 4 superficies sincronizadas: código, ordinograma, estructograma de Nassi-Shneiderman y tabla de escritorio interactiva." />
-    <meta name="keywords" content="pseudocodigo, pseudolearn, diagramas de flujo, nassi shneiderman, ordinograma, tabla de escritorio, algoritmos, programacion" />
-    <title>PseudoLearn · Aprende a programar viendo lo que hace tu programa</title>
+
+    <!-- Metadatos Básicos -->
+    <title>Editor de Pseudocódigo Online y Diagramas de Flujo | PseudoFlow</title>
+    <meta name="description" content="Aprende y ejecuta pseudocódigo paso a paso en tu navegador con PseudoFlow. Genera diagramas de flujo, estructogramas y tablas de traza en tiempo real sin instalar nada." />
+    <meta name="keywords" content="pseudocodigo online, editor de algoritmos, diagramas de flujo, nassi shneiderman, prueba de escritorio, aprender a programar" />
+    <meta name="author" content="PseudoFlow" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://pseudoflow.pages.dev/" />
+
+    <!-- Open Graph (Facebook, WhatsApp, LinkedIn) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://pseudoflow.pages.dev/" />
+    <meta property="og:title" content="PseudoFlow - Editor de Pseudocódigo Interactivo y Diagramas" />
+    <meta property="og:description" content="Visualiza la ejecución de tus algoritmos paso a paso: código, ordinograma, estructograma y prueba de escritorio sincronizados." />
+    <meta property="og:image" content="https://pseudoflow.pages.dev/og-image.png" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://pseudoflow.pages.dev/" />
+    <meta name="twitter:title" content="PseudoFlow - Editor de Pseudocódigo Interactivo" />
+    <meta name="twitter:description" content="Aprende algoritmos viendo lo que hace tu programa sentencia por sentencia." />
+    <meta name="twitter:image" content="https://pseudoflow.pages.dev/og-image.png" />
+
+    <!-- Favicon y tema -->
+    <meta name="theme-color" content="#0f172a" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 1 95 95'%3E%3Cpath fill='%236bbdff' d='M 10,79 H 36 A 7,7 0 0 1 43,86 V 86 A 7,7 0 0 1 36,93 H 10 A 7,7 0 0 1 3,86 V 86 A 7,7 0 0 1 10,79 Z M 36,53 H 36 A 7,7 0 0 1 43,60 V 86 A 7,7 0 0 1 36,93 H 36 A 7,7 0 0 1 29,86 V 60 A 7,7 0 0 1 36,53 Z M 36,53 H 62 A 7,7 0 0 1 69,60 V 60 A 7,7 0 0 1 62,67 H 36 A 7,7 0 0 1 29,60 V 60 A 7,7 0 0 1 36,53 Z M 62,27 H 62 A 7,7 0 0 1 69,34 V 60 A 7,7 0 0 1 62,67 H 62 A 7,7 0 0 1 55,60 V 34 A 7,7 0 0 1 62,27 Z M 62,27 H 88 A 7,7 0 0 1 95,34 V 34 A 7,7 0 0 1 88,41 H 62 A 7,7 0 0 1 55,34 V 34 A 7,7 0 0 1 62,27 Z M 88,1 H 88 A 7,7 0 0 1 95,8 V 34 A 7,7 0 0 1 88,41 H 88 A 7,7 0 0 1 81,34 V 8 A 7,7 0 0 1 88,1 Z M 0,86 A 10,10 0 1 1 20,86 A 10,10 0 1 1 0,86 Z M 83.6584,3.1708 A 3,3 0 0 1 88,5.8541 L 88,22.1459 A 3,3 0 0 1 83.6584,24.8292 L 67.3666,16.6833 A 3,3 0 0 1 67.3666,11.3167 Z'/%3E%3C/svg%3E" />
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
