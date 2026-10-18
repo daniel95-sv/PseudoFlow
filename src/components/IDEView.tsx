@@ -247,6 +247,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
           setCurrentSessionId(res.sessionId);
         } else {
           setCurrentSessionId(null);
+          if (res.error) setRuntimeError(res.error);
         }
       });
     }

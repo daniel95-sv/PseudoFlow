@@ -3,6 +3,16 @@ import { Lexer } from './lexer';
 import { Parser } from './parser';
 import { Interpreter } from './interpreter';
 
+/**
+ * Nota de arquitectura y seguridad educativa:
+ * La validación de ejercicios se ejecuta en el cliente (navegador / Web Worker)
+ * para proporcionar retroalimentación didáctica inmediata y soporte 100% offline.
+ * Los casos de prueba (tanto visibles como complementarios) están disponibles en el
+ * cliente y no constituyen secretos criptográficos frente a inspección en DevTools.
+ * Para calificaciones oficiales o exámenes de alta seguridad, la evaluación debe
+ * realizarse en un servicio backend autenticado.
+ */
+
 export interface ValidationProgress {
   current: number;
   total: number;

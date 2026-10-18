@@ -31,6 +31,7 @@ export interface InterpreterOptions {
   maxOutputLines?: number;
   maxOutputChars?: number;
   maxLineLength?: number;
+  maxSubprogramSteps?: number;
 }
 
 export class Interpreter {
@@ -59,6 +60,9 @@ export class Interpreter {
   public static readonly MAX_TRACE_STEPS_STORED = 2_000;
   public static readonly MAX_ARRAY_FORMAT_ELEMENTS = 8;
   public static readonly DEFAULT_TIMEOUT_MS = 5_000;
+  public static readonly MAX_INPUT_LENGTH = 10_000;
+  public static readonly MAX_SUBPROGRAM_STEPS = 25_000;
+  public static readonly MAX_SUBPROGRAM_EVAL_MS = 4_000;
 
   private maxSteps: number = Interpreter.MAX_STEPS;
   private maxCallStackDepth: number = Interpreter.MAX_CALL_STACK_DEPTH;
@@ -69,6 +73,7 @@ export class Interpreter {
   private maxOutputLines: number = Interpreter.MAX_OUTPUT_LINES;
   private maxOutputChars: number = Interpreter.MAX_OUTPUT_CHARS;
   private maxLineLength: number = Interpreter.MAX_LINE_LENGTH;
+  private maxSubprogramSteps: number = Interpreter.MAX_SUBPROGRAM_STEPS;
   private totalOutputChars: number = 0;
   private outputLimitReached: boolean = false;
   private totalAllocatedArrayElements: number = 0;
@@ -95,6 +100,7 @@ export class Interpreter {
     if (options?.maxOutputLines !== undefined) this.maxOutputLines = options.maxOutputLines;
     if (options?.maxOutputChars !== undefined) this.maxOutputChars = options.maxOutputChars;
     if (options?.maxLineLength !== undefined) this.maxLineLength = options.maxLineLength;
+    if (options?.maxSubprogramSteps !== undefined) this.maxSubprogramSteps = options.maxSubprogramSteps;
     if (options?.maxExecutionTimeMs !== undefined) {
       this.maxExecutionTimeMs = options.maxExecutionTimeMs;
       if (options?.maxSteps === undefined) {
@@ -146,7 +152,10 @@ export class Interpreter {
 
   public provideInput(val: string): void {
     if (this.isWaitingForInput && this.inputTarget) {
-      this.assignValue(this.inputTarget, this.parsePrimitiveInput(val));
+      const safeVal = typeof val === 'string' && val.length > Interpreter.MAX_INPUT_LENGTH
+        ? val.slice(0, Interpreter.MAX_INPUT_LENGTH)
+        : val;
+      this.assignValue(this.inputTarget, this.parsePrimitiveInput(safeVal));
       this.isWaitingForInput = false;
       this.inputTarget = undefined;
     }
@@ -944,8 +953,17 @@ export class Interpreter {
       currentClass: _cls
     });
 
+    const startMethodTime = Date.now();
+    let internalSteps = 0;
     const gen = this.executeBlock(method.body);
     while (true) {
+      internalSteps++;
+      if (internalSteps > this.maxSubprogramSteps) {
+        throw new Error(`Límite interno de pasos de ejecución superado (${this.maxSubprogramSteps}) en método ${instance.className}.${method.name}. Posible bucle infinito.`);
+      }
+      if (Date.now() - startMethodTime > Interpreter.MAX_SUBPROGRAM_EVAL_MS) {
+        throw new Error(`Tiempo límite de ejecución de método superado (${Interpreter.MAX_SUBPROGRAM_EVAL_MS} ms) en ${instance.className}.${method.name}. Posible bucle infinito.`);
+      }
       const step = gen.next();
       if (step.done) break;
     }
@@ -989,8 +1007,17 @@ export class Interpreter {
       references
     });
 
+    const startSubTime = Date.now();
+    let internalSteps = 0;
     const gen = this.executeBlock(sub.body);
     while (true) {
+      internalSteps++;
+      if (internalSteps > this.maxSubprogramSteps) {
+        throw new Error(`Límite interno de pasos de ejecución superado (${this.maxSubprogramSteps}) en subprograma ${sub.name}. Posible bucle infinito.`);
+      }
+      if (Date.now() - startSubTime > Interpreter.MAX_SUBPROGRAM_EVAL_MS) {
+        throw new Error(`Tiempo límite de ejecución de subprograma superado (${Interpreter.MAX_SUBPROGRAM_EVAL_MS} ms) en ${sub.name}. Posible bucle infinito.`);
+      }
       const step = gen.next();
       if (step.done) break;
     }
@@ -1204,13 +1231,16 @@ export class Interpreter {
 
   private parsePrimitiveInput(val: string): any {
     if (val === '') return '';
-    const trimmed = val.trim();
-    if (trimmed === '') return val;
+    const safeStr = typeof val === 'string' && val.length > Interpreter.MAX_INPUT_LENGTH
+      ? val.slice(0, Interpreter.MAX_INPUT_LENGTH)
+      : val;
+    const trimmed = safeStr.trim();
+    if (trimmed === '') return safeStr;
     if (/^-?\d+$/.test(trimmed)) return parseInt(trimmed, 10);
     if (/^-?\d+\.\d+$/.test(trimmed)) return parseFloat(trimmed);
     if (trimmed.toLowerCase() === 'verdadero' || trimmed.toLowerCase() === 'true') return true;
     if (trimmed.toLowerCase() === 'falso' || trimmed.toLowerCase() === 'false') return false;
-    return val;
+    return safeStr;
   }
 
   private formatValue(val: any, depth: number = 0): string {

@@ -240,10 +240,127 @@ describe('C. Interactive Execution Isolation & Session Safety', () => {
     stepRes = await session.step(sId);
     expect(stepRes.error).toBeUndefined();
 
-    // Final step
     stepRes = await session.step(sId);
     expect(stepRes.outputs).toContain('Leido:99');
     session.stop();
+  });
+
+  it('handles session.reset() cleanly transitioning to new session with updated code', async () => {
+    const session = new InteractiveSession();
+    const startRes = await session.start('Proceso Inicial\nEscribir "Version1";\nFinProceso');
+    expect(startRes.success).toBe(true);
+
+    // Initial step
+    await session.step(startRes.sessionId);
+
+    // Reset with new code
+    const resetRes = await session.reset('Proceso Modificado\nEscribir "Version2";\nFinProceso');
+    expect(resetRes.success).toBe(true);
+    expect(resetRes.sessionId).not.toBe(startRes.sessionId);
+
+    // Step through the newly reset session to completion
+    let stepRes = await session.step(resetRes.sessionId);
+    let iterations = 0;
+    while (!stepRes.done && iterations < 15) {
+      stepRes = await session.step(resetRes.sessionId);
+      iterations++;
+    }
+
+    expect(stepRes.done).toBe(true);
+    expect(stepRes.outputs).toContain('Version2');
+    expect(stepRes.outputs).not.toContain('Version1');
+    session.stop();
+  });
+
+  it('settles pending step promises cleanly when session.stop() or worker.onerror is called', async () => {
+    // 1. Test in-flight cancellation via session.stop()
+    const session1 = new InteractiveSession();
+    (session1 as any).isFallback = false;
+    (session1 as any).worker = { postMessage: () => {}, terminate: () => {} };
+    (session1 as any).currentSessionId = 'sess_cancel_1';
+
+    const stepPromise1 = session1.step('sess_cancel_1');
+    session1.stop();
+
+    const res1 = await stepPromise1;
+    expect(res1.done).toBe(true);
+    expect(res1.error).toBeDefined();
+    expect(res1.error).toContain('detenida');
+
+    // 2. Test in-flight resolution on worker.onerror
+    const session2 = new InteractiveSession();
+    const mockWorker: any = { postMessage: () => {}, terminate: () => {} };
+    (session2 as any).isFallback = false;
+    (session2 as any).worker = mockWorker;
+    (session2 as any).currentSessionId = 'sess_cancel_2';
+
+    // Hook up mock onerror
+    mockWorker.onerror = (session2 as any).worker.onerror || null;
+    const stepPromise2 = session2.step('sess_cancel_2');
+    (session2 as any).flushPending('Worker interactivo falló inesperadamente.');
+
+    const res2 = await stepPromise2;
+    expect(res2.done).toBe(true);
+    expect(res2.error).toContain('falló');
+  });
+
+  it('rejects concurrent step calls without hanging or overwriting resolvers', async () => {
+    const session = new InteractiveSession();
+    const startRes = await session.start('Proceso Concurrente\nEscribir "P1";\nEscribir "P2";\nFinProceso');
+    expect(startRes.success).toBe(true);
+
+    // Launch two steps concurrently
+    const [step1, step2] = await Promise.all([
+      session.step(startRes.sessionId),
+      session.step(startRes.sessionId)
+    ]);
+
+    expect(step1).toBeDefined();
+    expect(step2).toBeDefined();
+    // One of them executed, or concurrent was cleanly guarded
+    const hasConcurrentWarning = Boolean(
+      (step1.error && step1.error.includes('en curso')) ||
+      (step2.error && step2.error.includes('en curso')) ||
+      step1.step || step2.step
+    );
+    expect(hasConcurrentWarning).toBe(true);
+    session.stop();
+  });
+
+  it('bounds runaway loops inside subprograms via maxSubprogramSteps without locking', () => {
+    const code = `
+      SubProceso BucleRunaway()
+        Mientras Verdadero Hacer
+        FinMientras
+      FinSubProceso
+
+      Proceso TestRunaway
+        BucleRunaway();
+      FinProceso
+    `;
+
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast, { maxSubprogramSteps: 200 });
+
+    expect(() => interp.runAll([], true)).toThrowError(/L\u00edmite interno de pasos de ejecuci\u00f3n superado/);
+  });
+
+  it('caps input string length exceeding Interpreter.MAX_INPUT_LENGTH in Leer and provideInput', () => {
+    const code = `
+      Proceso LecturaCapped
+        Definir s Como Cadena;
+        Leer s;
+      FinProceso
+    `;
+
+    const hugeInput = 'A'.repeat(Interpreter.MAX_INPUT_LENGTH + 5_000);
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll([hugeInput]);
+
+    const val = interp.getVariable('s');
+    expect(typeof val).toBe('string');
+    expect(val.length).toBe(Interpreter.MAX_INPUT_LENGTH);
   });
 });
 

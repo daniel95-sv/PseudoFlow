@@ -5,6 +5,9 @@
  * Alcance y limitaciones:
  * - Diseñado para algoritmos educativos (declaraciones, lectura/escritura, condicionales, bucles, arreglos básicos 1D/2D).
  * - En Rust, arreglos >2D o mutabilidad compleja pueden requerir estructuras manuales adicionales.
+ * - Operador de potencia (^) en Rust: se transforma a `i64::pow(base, exp as u32)` orientado a aritmética
+ *   entera educativa. Exponentes negativos, reales o fraccionarios en Rust requieren conversión explícita
+ *   a punto flotante `(base as f64).powf(exp as f64)`.
  * - Enmascaramiento de cadenas: previene que palabras clave (NO, Y, O, =) dentro de literales sean corrompidas.
  * - Inicialización por defecto de variables para evitar UnboundLocalError en Python y errores de tipo en Rust.
  * - Generación de 'pass' en bloques Python vacíos para asegurar código ejecutable y válido.
