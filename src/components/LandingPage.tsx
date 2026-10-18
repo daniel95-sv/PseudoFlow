@@ -100,20 +100,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div
               style={{
                 background: 'var(--pl-sunken)',
-                padding: '0.6rem 1rem',
+                padding: '0.5rem 0.85rem',
                 borderBottom: '1px solid var(--pl-line)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem'
+                gap: '0.6rem',
+                minWidth: 0
               }}
             >
-              <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#ff5f56', display: 'inline-block' }}></span>
-              <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }}></span>
-              <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#27c93f', display: 'inline-block' }}></span>
-              <span className="pl-mono" style={{ marginLeft: '1rem', fontSize: '0.85rem', color: 'var(--pl-ink-2)' }}>
-                DemostracionGuiada.pseudo &mdash; Ejecución paso a paso
+              <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff5f56', display: 'inline-block' }}></span>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }}></span>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#27c93f', display: 'inline-block' }}></span>
+              </div>
+              <span
+                className="pl-mono"
+                style={{
+                  fontSize: '0.82rem',
+                  color: 'var(--pl-ink-2)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  minWidth: 0,
+                  flex: 1
+                }}
+              >
+                DemostracionGuiada.pseudo
               </span>
-              <div style={{ marginLeft: 'auto' }}>
+              <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
                 <button className="pl-btn pl-btn--primary pl-btn--sm" onClick={onOpenIDE}>
                   <Play size={13} fill="currentColor" />
                   <span>{isEs ? 'Interactuar' : 'Interact'}</span>
@@ -122,10 +136,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
             {/* Preview Body (Code + Synchronized Trace) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', padding: '1.5rem', gap: '1.5rem' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 290px), 1fr))',
+                padding: '1.25rem',
+                gap: '1.25rem'
+              }}
+            >
               <div>
                 <p className="pl-overline pl-overline--brand">Código con sentencia activa</p>
-                <div style={{ background: 'var(--pl-canvas)', border: '1px solid var(--pl-line)', borderRadius: '8px', padding: '1rem', fontFamily: 'var(--pl-font-mono)', fontSize: '0.88rem' }}>
+                <div style={{ background: 'var(--pl-canvas)', border: '1px solid var(--pl-line)', borderRadius: '8px', padding: '1rem', fontFamily: 'var(--pl-font-mono)', fontSize: '0.88rem', overflowX: 'auto' }}>
                   <div style={{ color: 'var(--pl-syn-proc)' }}>Proceso DemostracionGuiada</div>
                   <div style={{ paddingLeft: '1.5rem', color: 'var(--pl-ink-2)' }}>Definir temperatura Como Entero;</div>
                   <div style={{ paddingLeft: '1.5rem', color: 'var(--pl-ink-2)' }}>temperatura &lt;- 30;</div>
@@ -141,8 +162,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
               <div>
                 <p className="pl-overline pl-overline--brand">Tabla de Traza y Memoria Sincronizada</p>
-                <div style={{ background: 'var(--pl-canvas)', border: '1px solid var(--pl-line)', borderRadius: '8px', padding: '0.5rem', overflowX: 'auto' }}>
-                  <table className="trace-table" style={{ fontSize: '0.8rem' }}>
+                <div style={{ background: 'var(--pl-canvas)', border: '1px solid var(--pl-line)', borderRadius: '8px', padding: '0.5rem', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <table className="trace-table" style={{ fontSize: '0.8rem', width: '100%', minWidth: '320px' }}>
                     <thead>
                       <tr>
                         <th>Paso</th>

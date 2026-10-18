@@ -368,7 +368,16 @@ export const IDEView: React.FC<IDEViewProps> = ({
   const handleSelectExercise = (ex: any) => {
     setSelectedExercise(ex);
     setTestResults(null);
-    const safeTitle = (isEs ? ex.title_es : ex.title_en || ex.title_es).replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ_]/g, '_');
+    const rawWords = (isEs ? ex.title_es : ex.title_en || ex.title_es)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9\s]/g, '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join('');
+    const safeTitle = rawWords || 'Reto';
     const starterCode = `Algoritmo Reto_${safeTitle}
     // Módulo: ${ex.module} - ${isEs ? ex.title_es : (ex.title_en || ex.title_es)}
     // Reto: ${isEs ? (ex.summary_es || '').split('\n')[0] : ((ex.summary_en || ex.summary_es || '').split('\n')[0])}
@@ -816,28 +825,48 @@ FinAlgoritmo
                   color: testResults.passed ? '#065f46' : '#991b1b'
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
                   <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <CheckCircle size={15} />
+                    {testResults.passed ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
                     <span>
                       {testResults.passed
                         ? (isEs ? '¡Pruebas superadas con éxito!' : 'Tests passed successfully!')
                         : (isEs ? 'Pruebas no superadas' : 'Tests failed')}
                     </span>
                   </div>
-                  <span style={{ fontSize: '0.68rem', opacity: 0.85, background: 'rgba(0,0,0,0.06)', padding: '2px 6px', borderRadius: '4px' }}>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 600, opacity: 0.9, background: 'rgba(0,0,0,0.06)', padding: '2px 8px', borderRadius: '4px' }}>
                     {isEs ? 'Formativo' : 'Formative'}
                   </span>
                 </div>
                 {testResults.details.map((d: any) => (
-                  <div key={d.index} style={{ fontSize: '0.78rem', marginTop: '0.2rem' }}>
-                    {isEs ? 'Caso' : 'Case'} {d.index} {d.isAdditional ? (isEs ? '(adicional)' : '(additional)') : ''}:{' '}
-                    {d.passed
-                      ? (isEs ? '✓ Correcto' : '✓ Passed')
-                      : `${isEs ? '✗ Error' : '✗ Failed'}. ${isEs ? 'Salida' : 'Actual'}: [${d.actualOutputs?.join(', ')}], ${isEs ? 'esperada' : 'expected'}: [${d.expectedOutputs?.join(', ')}]${d.error ? ` (${d.error})` : ''}`}
+                  <div
+                    key={d.index}
+                    style={{
+                      fontSize: '0.78rem',
+                      marginTop: '0.25rem',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '0.35rem',
+                      alignItems: 'baseline'
+                    }}
+                  >
+                    <span style={{ fontWeight: 600 }}>
+                      {isEs ? 'Caso' : 'Case'} {d.index} {d.isAdditional ? (isEs ? '(adicional)' : '(additional)') : ''}:
+                    </span>
+                    {d.passed ? (
+                      <span style={{ color: '#059669', fontWeight: 600 }}>{isEs ? '✓ Correcto' : '✓ Passed'}</span>
+                    ) : (
+                      <span>
+                        <span style={{ color: '#dc2626', fontWeight: 700 }}>{isEs ? '✗ Error' : '✗ Failed'}.</span>
+                        <span className="pl-mono" style={{ marginLeft: '0.35rem', opacity: 0.9 }}>
+                          {isEs ? 'Salida' : 'Actual'}: [{d.actualOutputs?.join(', ')}], {isEs ? 'esperada' : 'expected'}: [{d.expectedOutputs?.join(', ')}]
+                          {d.error ? ` (${d.error})` : ''}
+                        </span>
+                      </span>
+                    )}
                   </div>
                 ))}
-                <div style={{ fontSize: '0.68rem', marginTop: '0.35rem', opacity: 0.8, fontStyle: 'italic' }}>
+                <div style={{ fontSize: '0.68rem', marginTop: '0.45rem', opacity: 0.8, fontStyle: 'italic', borderTop: `1px solid ${testResults.passed ? '#a7f3d0' : '#fecaca'}`, paddingTop: '0.3rem' }}>
                   {isEs
                     ? 'Evaluación formativa local en el navegador (casos de comprobación didáctica, no confidenciales).'
                     : 'Local formative assessment in the browser (educational verification cases, not confidential).'}
