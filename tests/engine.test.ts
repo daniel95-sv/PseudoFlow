@@ -678,7 +678,7 @@ describe('Auditoría v3 — Correcciones P1, P2 y P3', () => {
       FinProceso
     `;
     const ast = new Parser(new Lexer(code).tokenize()).parse();
-    const interp = new Interpreter(ast, { maxExecutionTimeMs: 50 });
+    const interp = new Interpreter(ast, { maxExecutionTimeMs: 50, maxSteps: 2_000_000 });
     const res = interp.runAll([], false);
     expect(res.error).toMatch(/Tiempo (l\u00EDmite|m\u00E1ximo) de ejecuci\u00F3n (superado|excedido)/i);
   });

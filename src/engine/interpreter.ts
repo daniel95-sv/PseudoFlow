@@ -81,7 +81,12 @@ export class Interpreter {
     if (options?.maxCallStackDepth !== undefined) this.maxCallStackDepth = options.maxCallStackDepth;
     if (options?.maxArrayElements !== undefined) this.maxArrayElements = options.maxArrayElements;
     if (options?.maxSystemTotalArrayElements !== undefined) this.maxSystemTotalArrayElements = options.maxSystemTotalArrayElements;
-    if (options?.maxExecutionTimeMs !== undefined) this.maxExecutionTimeMs = options.maxExecutionTimeMs;
+    if (options?.maxExecutionTimeMs !== undefined) {
+      this.maxExecutionTimeMs = options.maxExecutionTimeMs;
+      if (options?.maxSteps === undefined) {
+        this.maxSteps = Math.max(Interpreter.MAX_STEPS, 2_000_000);
+      }
+    }
     if (options?.isInteractive !== undefined) this.isInteractive = options.isInteractive;
 
     // Register classes and subprograms
@@ -204,15 +209,15 @@ export class Interpreter {
     if (!this.startTime) {
       this.startTime = Date.now();
     }
-    this.stepNumber++;
-    if (this.stepNumber > this.maxSteps) {
-      const lineMsg = line ? ` (en línea ${line})` : '';
-      throw new Error(`Límite de ejecución alcanzado (${this.maxSteps} pasos)${lineMsg}. Posible bucle infinito o recursión excesiva.`);
-    }
     // Interactive debugging / stepping must not be interrupted by wall-clock timeout
     if (!this.isInteractive && this.maxExecutionTimeMs > 0 && (Date.now() - this.startTime > this.maxExecutionTimeMs)) {
       const lineMsg = line ? ` (en línea ${line})` : '';
       throw new Error(`Tiempo máximo de ejecución excedido (${this.maxExecutionTimeMs} ms)${lineMsg}. Posible bucle infinito.`);
+    }
+    this.stepNumber++;
+    if (this.stepNumber > this.maxSteps) {
+      const lineMsg = line ? ` (en línea ${line})` : '';
+      throw new Error(`Límite de ejecución alcanzado (${this.maxSteps} pasos)${lineMsg}. Posible bucle infinito o recursión excesiva.`);
     }
   }
 
