@@ -52,15 +52,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="home-hero">
-        <div className="pl-container home-hero__inner">
-          <p className="pl-overline pl-overline--field">
-            {isEs ? 'Pseudocódigo en español e inglés · Multiplataforma e Independiente' : 'Pseudocode in Spanish and English · Standalone Web App'}
-          </p>
-          <h1 className="pl-display">
-            {isEs ? 'Programar se entiende cuando se ve.' : 'Programming makes sense when you can see it.'}
-          </h1>
+      {/* Main Content */}
+      <main id="main-content">
+        {/* Hero */}
+        <section className="home-hero">
+          <div className="pl-container home-hero__inner">
+            <p className="pl-overline pl-overline--field">
+              {isEs ? 'Pseudocódigo en español e inglés · Multiplataforma e Independiente' : 'Pseudocode in Spanish and English · Standalone Web App'}
+            </p>
+            <h1 className="pl-display">
+              {isEs ? 'Editor de Pseudocódigo Online: Programar se entiende cuando se ve.' : 'Online Pseudocode Editor: Programming makes sense when you see it.'}
+            </h1>
           <p className="pl-lede">
             {isEs
               ? 'PseudoFlow ejecuta tu pseudocódigo una sentencia por vez y mantiene el mismo paso resaltado en el código, el ordinograma, el estructograma y la tabla de prueba de escritorio. Detrás hay una ruta de 15 módulos con 95 ejercicios que se comprueban solos.'
@@ -392,14 +394,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
       </section>
+      </main>
 
       {/* Footer */}
       <footer style={{ background: 'var(--pl-field)', color: '#fff', padding: '3rem 0', borderTop: '1px solid var(--pl-field-deep)' }}>
-        <div className="pl-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="pl-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
           <div>
             <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '0.3rem' }}>PseudoFlow Web</div>
-            <div style={{ fontSize: '0.85rem', color: '#92dada' }}>
+            <div style={{ fontSize: '0.85rem', color: '#92dada', marginBottom: '0.5rem' }}>
               Editor de pseudocódigo en línea, diagramas de flujo y pruebas de escritorio en tiempo real.
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '0.82rem' }}>
+              <a href="#editor" style={{ color: '#8be4e8', textDecoration: 'none' }}>{isEs ? 'Editor Interactivo' : 'Interactive Editor'}</a>
+              <a href="#surfaces" style={{ color: '#8be4e8', textDecoration: 'none' }}>{isEs ? 'Superficies y Diagramas' : 'Surfaces & Diagrams'}</a>
+              <a href="#track" style={{ color: '#8be4e8', textDecoration: 'none' }}>{isEs ? 'Ruta Pedagógica' : 'Curriculum'}</a>
+              <a href="#features" style={{ color: '#8be4e8', textDecoration: 'none' }}>{isEs ? 'Ventajas' : 'Features'}</a>
+              <a href="https://github.com/daniel95-sv/PseudoFlow.git" target="_blank" rel="noopener noreferrer" style={{ color: '#fff', textDecoration: 'underline' }}>
+                GitHub
+              </a>
             </div>
           </div>
           <button className="pl-btn pl-btn--on-field" onClick={onOpenIDE}>

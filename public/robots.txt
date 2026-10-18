@@ -1,0 +1,6 @@
+# robots.txt para PseudoFlow
+User-agent: *
+Allow: /
+
+# Sitemap oficial
+Sitemap: https://pseudoflow.pages.dev/sitemap.xml
