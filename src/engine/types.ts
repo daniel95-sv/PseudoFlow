@@ -211,6 +211,7 @@ export interface MemberAccessNode {
   type: 'MemberAccess';
   object: ExpressionNode;
   member: string;
+  args?: ExpressionNode[];
 }
 
 export interface CallNode {

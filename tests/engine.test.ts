@@ -533,5 +533,101 @@ describe('Corpus of Invalid Inputs & Edge Cases (Auditoría Fase 1 & 2)', () => 
   });
 });
 
+describe('Subprograms, Pass-by-Reference & OOP Support (Auditoría Criterios Aceptación)', () => {
+  it('modifies caller variables when passed Por Referencia', () => {
+    const code = `
+      SubProceso Incrementar(num Como Entero Por Referencia)
+        num <- num + 10;
+      FinSubProceso
+
+      Proceso Principal
+        Definir x Como Entero;
+        x <- 5;
+        Incrementar(x);
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll();
+    expect(interp.getVariable('x')).toBe(15);
+  });
+
+  it('instantiates classes and invokes methods modifying instance fields via Este', () => {
+    const code = `
+      Clase Contador
+        Definir valor Como Entero;
+        Publico Metodo Constructor(inicio Como Entero)
+          Este.valor <- inicio;
+        FinMetodo
+        Publico Metodo Sumar(n Como Entero)
+          Este.valor <- Este.valor + n;
+        FinMetodo
+      FinClase
+
+      Proceso Principal
+        Definir c Como Contador;
+        c <- Nuevo Contador(10);
+        c.Sumar(25);
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll();
+    const cObj = interp.getVariable('c');
+    expect(cObj).toBeDefined();
+    expect(cObj.fields['valor']).toBe(35);
+  });
+
+  it('supports inheritance (Hereda De) with method execution', () => {
+    const code = `
+      Clase Animal
+        Definir nombre Como Cadena;
+        Publico Metodo SetNombre(nom Como Cadena)
+          Este.nombre <- nom;
+        FinMetodo
+      FinClase
+
+      Clase Perro Hereda De Animal
+        Definir raza Como Cadena;
+        Publico Metodo SetRaza(r Como Cadena)
+          Este.raza <- r;
+        FinMetodo
+      FinClase
+
+      Proceso Principal
+        Definir miPerro Como Perro;
+        miPerro <- Nuevo Perro();
+        miPerro.SetNombre("Rex");
+        miPerro.SetRaza("Pastor");
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll();
+    const perro = interp.getVariable('miPerro');
+    expect(perro.fields['nombre']).toBe('Rex');
+    expect(perro.fields['raza']).toBe('Pastor');
+  });
+
+  it('runs load test with large array modified inside a loop without memory lag (Auditoría P1)', () => {
+    const code = `
+      Algoritmo CargaArreglo
+        Dimension arr[500];
+        Definir i Como Entero;
+        Para i <- 0 Hasta 50 Hacer
+          arr[i] <- i * 3;
+        FinPara
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    const start = Date.now();
+    const res = interp.runAll();
+    const duration = Date.now() - start;
+    expect(res.error).toBeUndefined();
+    expect(duration).toBeLessThan(1500);
+  });
+});
+
 
 

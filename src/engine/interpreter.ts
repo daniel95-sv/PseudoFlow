@@ -570,12 +570,13 @@ export class Interpreter {
         if (!obj || typeof obj !== 'object') {
           throw new Error(`No se puede acceder al miembro "${expr.member}" de un valor no objeto`);
         }
-        // Could be a field
-        if (obj.fields && expr.member in obj.fields) {
+        // Could be a field access when no arguments are provided
+        if (obj.fields && expr.member in obj.fields && !expr.args) {
           return obj.fields[expr.member];
         }
         // Or method call
-        return this.invokeMethod(obj, expr.member, []);
+        const args = expr.args ? expr.args.map(a => this.evalExpression(a)) : [];
+        return this.invokeMethod(obj, expr.member, args);
       }
 
       case 'Call': {
@@ -655,6 +656,7 @@ export class Interpreter {
   }
 
   private executeMethod(_cls: ClassNode, method: MethodNode, instance: ObjectInstance, args: any[]): any {
+    this.consumeStep();
     if (this.callStack.length >= this.maxCallStackDepth) {
       throw new Error(`Profundidad máxima de pila de llamadas superada (${this.maxCallStackDepth} niveles). Posible recursión infinita.`);
     }
@@ -682,6 +684,7 @@ export class Interpreter {
   }
 
   private invokeSubprogram(sub: SubprogramNode, evalArgs: any[], rawArgs: ExpressionNode[]): any {
+    this.consumeStep();
     if (this.callStack.length >= this.maxCallStackDepth) {
       throw new Error(`Profundidad máxima de pila de llamadas superada (${this.maxCallStackDepth} niveles). Posible recursión infinita en ${sub.name}.`);
     }

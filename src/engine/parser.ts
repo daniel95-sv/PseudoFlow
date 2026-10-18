@@ -405,8 +405,9 @@ export class Parser {
           line,
           call: {
             type: 'MemberAccess',
-            object: { type: 'Variable', name: target.name },
-            member: target.member
+            object: target.isThis ? { type: 'This' } : { type: 'Variable', name: target.name },
+            member: target.member,
+            args
           }
         };
       }
@@ -486,12 +487,13 @@ export class Parser {
           else if (this.check('IDENTIFIER')) pType = this.advance().value;
 
           let isRef = false;
-          if (this.match('POR')) {
-            if (this.match('REFERENCIA')) isRef = true;
-            else this.match('VALOR');
-          } else if (this.match('BY')) {
-            if (this.match('REFERENCIA')) isRef = true;
-            else this.match('VALOR');
+          if (this.match('POR') || this.match('BY')) {
+            if (this.check('REFERENCIA') || (this.check('IDENTIFIER') && /^(referencia|reference)$/i.test(this.peek().value))) {
+              this.advance();
+              isRef = true;
+            } else if (this.check('VALOR') || (this.check('IDENTIFIER') && /^(valor|value)$/i.test(this.peek().value))) {
+              this.advance();
+            }
           }
 
           parameters.push({ name: pName, dataType: pType, isReference: isRef });
@@ -591,7 +593,17 @@ export class Parser {
           else if (this.match('TIPO_LOGICO')) pType = 'Logico';
           else if (this.check('IDENTIFIER')) pType = this.advance().value;
 
-          parameters.push({ name: pName, dataType: pType, isReference: false });
+          let isRef = false;
+          if (this.match('POR') || this.match('BY')) {
+            if (this.check('REFERENCIA') || (this.check('IDENTIFIER') && /^(referencia|reference)$/i.test(this.peek().value))) {
+              this.advance();
+              isRef = true;
+            } else if (this.check('VALOR') || (this.check('IDENTIFIER') && /^(valor|value)$/i.test(this.peek().value))) {
+              this.advance();
+            }
+          }
+
+          parameters.push({ name: pName, dataType: pType, isReference: isRef });
         } while (this.match('COMMA'));
       }
       this.consume('RPAREN', 'Se esperaba ")"');
@@ -736,9 +748,9 @@ export class Parser {
       if (this.match('DOT')) {
         const member = this.consume('IDENTIFIER', 'Se esperaba atributo en Este').value;
         if (this.match('LPAREN')) {
-          this.parseArguments();
+          const args = this.parseArguments();
           this.consume('RPAREN', 'Se esperaba ")"');
-          return { type: 'MemberAccess', object: { type: 'This', member }, member };
+          return { type: 'MemberAccess', object: { type: 'This' }, member, args };
         }
         return { type: 'This', member };
       }
@@ -769,12 +781,13 @@ export class Parser {
       if (this.match('DOT')) {
         const member = this.consume('IDENTIFIER', 'Se esperaba el nombre del miembro').value;
         if (this.match('LPAREN')) {
-          this.parseArguments();
+          const args = this.parseArguments();
           this.consume('RPAREN', 'Se esperaba ")"');
           return {
             type: 'MemberAccess',
             object: { type: 'Variable', name },
-            member
+            member,
+            args
           };
         }
         return {
@@ -818,8 +831,14 @@ export class Parser {
     return false;
   }
 
+  private isIdentifierToken(token?: Token): boolean {
+    if (!token) return false;
+    return token.type === 'IDENTIFIER' || token.type === 'VALOR' || token.type === 'REFERENCIA' || token.type === 'PASO';
+  }
+
   private check(type: string): boolean {
     if (this.isAtEnd()) return false;
+    if (type === 'IDENTIFIER') return this.isIdentifierToken(this.peek());
     return this.peek().type === type;
   }
 

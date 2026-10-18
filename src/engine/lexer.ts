@@ -413,11 +413,7 @@ export class Lexer {
       'finfuncion': 'FINSUBPROCESO',
       'endsubprogram': 'FINSUBPROCESO',
       'por': 'POR',
-      'valor': 'VALOR',
-      'referencia': 'REFERENCIA',
       'by': 'BY',
-      'value': 'VALOR',
-      'reference': 'REFERENCIA',
       'retornar': 'RETORNAR',
       'return': 'RETORNAR',
 
