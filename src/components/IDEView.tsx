@@ -1306,7 +1306,7 @@ endAlgorithm
               title={isEs ? 'Descargar código (.pseudo)' : 'Download code (.pseudo)'}
             >
               <Download size={14} />
-              <span>{isEs ? 'Descargar' : 'Download'}</span>
+              <span className="ide-btn-label-responsive">{isEs ? 'Descargar' : 'Download'}</span>
             </button>
 
             <button
@@ -1316,7 +1316,7 @@ endAlgorithm
               title={isEs ? 'Abrir archivo local (.pseudo, .txt, .psc)' : 'Open local code file (.pseudo, .txt, .psc)'}
             >
               <Upload size={14} />
-              <span>{isEs ? 'Abrir' : 'Open'}</span>
+              <span className="ide-btn-label-responsive">{isEs ? 'Abrir' : 'Open'}</span>
             </button>
             <input
               type="file"
@@ -1333,7 +1333,7 @@ endAlgorithm
               title={isEs ? 'Restablecer al ejemplo inicial' : 'Reset to default code'}
             >
               <Trash2 size={14} />
-              <span>{isEs ? 'Restablecer' : 'Clear'}</span>
+              <span className="ide-btn-label-responsive">{isEs ? 'Restablecer' : 'Clear'}</span>
             </button>
           </div>
         )}

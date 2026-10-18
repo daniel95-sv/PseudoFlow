@@ -438,19 +438,29 @@ body {
   padding: 0.45rem 0.85rem;
   background: var(--pl-surface);
   border-bottom: 1px solid var(--pl-line);
-  gap: 0.6rem;
+  gap: 0.5rem;
   flex-shrink: 0;
   z-index: 10;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.ide-toolbar::-webkit-scrollbar {
+  display: none;
 }
 
 .ide-toolbar__group {
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
 }
 
 .ide-toolbar__group--center {
-  flex-wrap: wrap;
+  flex-wrap: nowrap !important;
 }
 
 .ide-title-pill {
@@ -739,6 +749,21 @@ body {
   display: flex;
   border-bottom: 1px solid var(--pl-line);
   background: var(--pl-sunken);
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  flex-shrink: 0;
+}
+
+.ide-surfaces-nav::-webkit-scrollbar {
+  height: 3px;
+}
+
+.ide-surfaces-nav::-webkit-scrollbar-thumb {
+  background: var(--pl-line);
+  border-radius: 2px;
 }
 
 .ide-surface-tab {
@@ -750,9 +775,11 @@ body {
   color: var(--pl-ink-2);
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .ide-surface-tab--active {
@@ -1332,6 +1359,17 @@ body {
     grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
   }
+}
+
+/* Responsive adjustments for medium screens (Laptops, MacBook Air) */
+@media screen and (max-width: 1340px) {
+  .ide-btn-label-responsive {
+    display: none !important;
+  }
+  .ide-speed-control span {
+    display: none !important;
+  }
+}
 
   /* ==========================================================================
      IDE Responsive & Multi-Column Rules
@@ -1576,7 +1614,30 @@ body {
       font-size: 0.76rem;
     }
   }
-}
+
+  /* Ultra-compact screens (Galaxy Fold outer display <= 360px) */
+  @media screen and (max-width: 360px) {
+    .ide-toolbar {
+      padding: 0 0.4rem;
+      gap: 0.25rem;
+    }
+    .ide-title-pill {
+      max-width: 120px;
+      font-size: 0.76rem;
+    }
+    .ide-mobile-tab {
+      font-size: 0.72rem;
+      padding: 0.35rem 0.15rem;
+      gap: 0.15rem;
+    }
+    .ide-mobile-action-bar {
+      padding: 0.25rem 0.35rem;
+    }
+    .ide-mobile-action-bar__controls .pl-btn {
+      padding: 0.28rem 0.45rem;
+      font-size: 0.72rem;
+    }
+  }
 
 /* Accessibility & Keyboard Navigation (Auditoría P2) */
 :focus-visible {

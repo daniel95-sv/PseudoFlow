@@ -72,10 +72,11 @@ export const FlowchartView: React.FC<FlowchartViewProps> = ({ data, activeLine, 
       <div style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '0.75rem' }}>
         <svg
           width={fitToWidth ? '100%' : data.totalWidth * zoom}
-          height={fitToWidth ? 'auto' : data.totalHeight * zoom}
+          height={fitToWidth ? undefined : data.totalHeight * zoom}
           viewBox={`0 0 ${data.totalWidth} ${data.totalHeight}`}
           style={{
             maxWidth: fitToWidth ? '100%' : 'none',
+            height: fitToWidth ? 'auto' : `${data.totalHeight * zoom}px`,
             display: 'block',
             margin: 'auto',
             transition: 'width 0.15s ease, height 0.15s ease'
