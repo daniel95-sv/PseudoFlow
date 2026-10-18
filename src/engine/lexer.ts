@@ -39,13 +39,19 @@ export class Lexer {
         const startCol = this.col;
         this.advance();
         this.advance();
-        while (this.pos < this.input.length && !(this.input[this.pos] === '*' && this.input[this.pos + 1] === '/')) {
+        let closed = false;
+        while (this.pos < this.input.length) {
+          if (this.input[this.pos] === '*' && this.input[this.pos + 1] === '/') {
+            this.advance();
+            this.advance();
+            closed = true;
+            break;
+          }
           comment += this.input[this.pos];
           this.advance();
         }
-        if (this.pos < this.input.length) {
-          this.advance();
-          this.advance();
+        if (!closed) {
+          throw new Error(`Comentario de bloque "/*" sin cerrar iniciado en línea ${startLine}, columna ${startCol}`);
         }
         tokens.push({ type: 'COMMENT', value: comment, line: startLine, col: startCol });
         continue;
@@ -225,8 +231,8 @@ export class Lexer {
         continue;
       }
 
-      // Unknown character fallback
-      this.advance();
+      // Unknown character fallback: throw lexical error instead of silent advance
+      throw new Error(`Carácter no reconocido: "${char}" en línea ${this.line}, columna ${this.col}`);
     }
 
     tokens.push({ type: 'EOF', value: '', line: this.line, col: this.col });
@@ -262,7 +268,13 @@ export class Lexer {
     const startCol = this.col;
     this.advance(); // skip quote
     let str = '';
-    while (this.pos < this.input.length && this.input[this.pos] !== quote) {
+    let closed = false;
+    while (this.pos < this.input.length) {
+      if (this.input[this.pos] === quote) {
+        this.advance(); // skip closing quote
+        closed = true;
+        break;
+      }
       if (this.input[this.pos] === '\\') {
         this.advance();
         if (this.pos < this.input.length) {
@@ -277,8 +289,8 @@ export class Lexer {
       str += this.input[this.pos];
       this.advance();
     }
-    if (this.pos < this.input.length) {
-      this.advance(); // skip closing quote
+    if (!closed) {
+      throw new Error(`Cadena literal sin cerrar iniciada en línea ${startLine}, columna ${startCol}`);
     }
     return { type: 'STRING', value: str, line: startLine, col: startCol };
   }
@@ -287,7 +299,14 @@ export class Lexer {
     const startLine = this.line;
     const startCol = this.col;
     let numStr = '';
+    let dotCount = 0;
     while (this.pos < this.input.length && (this.isDigit(this.input[this.pos]) || this.input[this.pos] === '.')) {
+      if (this.input[this.pos] === '.') {
+        dotCount++;
+        if (dotCount > 1) {
+          throw new Error(`Número mal formado con múltiples puntos decimales en línea ${this.line}, columna ${this.col}`);
+        }
+      }
       numStr += this.input[this.pos];
       this.advance();
     }

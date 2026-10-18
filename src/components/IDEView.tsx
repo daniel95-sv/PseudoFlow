@@ -15,7 +15,10 @@ import {
   Sun,
   Moon,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Download,
+  Upload,
+  AlertCircle
 } from 'lucide-react';
 
 import { Lexer } from '../engine/lexer';
@@ -67,9 +70,12 @@ export const IDEView: React.FC<IDEViewProps> = ({
   onToggleLang
 }) => {
   const isEs = lang === 'es';
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Code state
-  const [code, setCode] = useState<string>(DEFAULT_CODE);
+  // Code state with localStorage draft support
+  const [code, setCode] = useState<string>(() => {
+    return localStorage.getItem('pseudoflow-draft-code') || DEFAULT_CODE;
+  });
   const [activeLine, setActiveLine] = useState<number | undefined>(undefined);
 
   // AST and diagram states
@@ -77,6 +83,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
   const [flowchartData, setFlowchartData] = useState<FlowchartData | null>(null);
   const [structogramBlocks, setStructogramBlocks] = useState<StructogramBlock[]>([]);
   const [syntaxError, setSyntaxError] = useState<string | null>(null);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
 
   // Execution state
   const [interpreter, setInterpreter] = useState<Interpreter | null>(null);
@@ -99,7 +106,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
   });
   const [testResults, setTestResults] = useState<{ passed: boolean; details: any[] } | null>(null);
 
-  // Parse code on change
+  // Parse code for diagrams whenever code changes
   useEffect(() => {
     try {
       const lexer = new Lexer(code);
@@ -115,7 +122,12 @@ export const IDEView: React.FC<IDEViewProps> = ({
     }
   }, [code]);
 
-  const handleReset = () => {
+  /**
+   * Reset execution explicitly with the provided code string
+   * Prevents stale React closures when selecting exercises or examples
+   */
+  const resetExecution = (targetCode?: string) => {
+    const codeToRun = targetCode !== undefined ? targetCode : code;
     setIsPlaying(false);
     setIsWaitingInput(false);
     setConsoleLogs([]);
@@ -123,17 +135,25 @@ export const IDEView: React.FC<IDEViewProps> = ({
     setCurrentStepIdx(-1);
     setActiveLine(undefined);
     setTestResults(null);
+    setRuntimeError(null);
 
     try {
-      const lexer = new Lexer(code);
+      const lexer = new Lexer(codeToRun);
       const tokens = lexer.tokenize();
       const parser = new Parser(tokens);
       const parsedAst = parser.parse();
+      setAst(parsedAst);
+      setFlowchartData(generateFlowchart(parsedAst));
+      setStructogramBlocks(generateStructogram(parsedAst));
+      setSyntaxError(null);
+
       const newInterp = new Interpreter(parsedAst);
       setInterpreter(newInterp);
       setStepGenerator(newInterp.generateSteps());
     } catch (e: any) {
-      setSyntaxError(e.message);
+      setSyntaxError(e.message || String(e));
+      setInterpreter(null);
+      setStepGenerator(null);
     }
   };
 
@@ -151,13 +171,24 @@ export const IDEView: React.FC<IDEViewProps> = ({
         gen = interp.generateSteps();
         setInterpreter(interp);
         setStepGenerator(gen);
+        setSyntaxError(null);
+        setRuntimeError(null);
       } catch (e: any) {
-        setSyntaxError(e.message);
+        setSyntaxError(e.message || String(e));
         return;
       }
     }
 
     const res = gen.next();
+
+    // Check if runtime error occurred in execution
+    if (interp.error) {
+      setRuntimeError(interp.error);
+      setConsoleLogs(prev => [...prev, `[${isEs ? 'Error de ejecución' : 'Runtime error'}]: ${interp.error}`]);
+      setIsPlaying(false);
+      setActiveLine(undefined);
+      return;
+    }
 
     if (interp.isWaitingForInput) {
       setIsWaitingInput(true);
@@ -187,7 +218,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
     }
 
     if (!interpreter || !stepGenerator) {
-      handleReset();
+      resetExecution();
     }
     setIsPlaying(true);
   };
@@ -255,7 +286,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
           actualOutputs: res.outputs,
           passed,
           error: res.error,
-          isHidden: i >= (selectedExercise.visibleCases || []).length
+          isAdditional: i >= (selectedExercise.visibleCases || []).length
         });
       }
 
@@ -278,17 +309,45 @@ export const IDEView: React.FC<IDEViewProps> = ({
   const handleSelectExercise = (ex: any) => {
     setSelectedExercise(ex);
     setTestResults(null);
-    if (ex.referenceSolution_es) {
-      setCode(ex.referenceSolution_es);
-    }
-    handleReset();
+    const newCode = ex.referenceSolution_es || DEFAULT_CODE;
+    setCode(newCode);
+    resetExecution(newCode);
+    localStorage.setItem('pseudoflow-draft-code', newCode);
   };
 
   const handleSelectExample = (ex: any) => {
     setSelectedExercise(null);
     setTestResults(null);
-    setCode(isEs ? ex.code_es : ex.code_en || ex.code_es);
-    handleReset();
+    const newCode = isEs ? ex.code_es : ex.code_en || ex.code_es;
+    setCode(newCode);
+    resetExecution(newCode);
+    localStorage.setItem('pseudoflow-draft-code', newCode);
+  };
+
+  const handleDownloadCode = () => {
+    const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${selectedExercise ? selectedExercise.id : 'programa'}.pseudo`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleUploadFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const content = ev.target?.result;
+      if (typeof content === 'string') {
+        setCode(content);
+        resetExecution(content);
+        localStorage.setItem('pseudoflow-draft-code', content);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const lineCount = code.split('\n').length;
@@ -298,12 +357,12 @@ export const IDEView: React.FC<IDEViewProps> = ({
       {/* Top Navbar / Control Bar */}
       <div className="ide-toolbar">
         <div className="ide-toolbar__group">
-          <button className="pl-btn pl-btn--outline pl-btn--sm" onClick={onBackToHome} title="Volver al inicio">
+          <button className="pl-btn pl-btn--outline pl-btn--sm" onClick={onBackToHome} title={isEs ? 'Volver al inicio' : 'Back to Home'}>
             <Home size={15} />
             <span>{isEs ? 'Inicio' : 'Home'}</span>
           </button>
           <span className="pl-mono" style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--pl-brand)' }}>
-            {selectedExercise ? selectedExercise.title_es : 'PseudoFlow IDE'}
+            {selectedExercise ? (isEs ? selectedExercise.title_es : selectedExercise.title_en || selectedExercise.title_es) : 'PseudoFlow IDE'}
           </span>
         </div>
 
@@ -312,32 +371,32 @@ export const IDEView: React.FC<IDEViewProps> = ({
           <button
             className={`pl-btn pl-btn--sm ${isPlaying ? 'pl-btn--outline' : 'pl-btn--primary'}`}
             onClick={handleStartOrPause}
-            title={isPlaying ? 'Pausar' : 'Ejecutar'}
+            title={isPlaying ? (isEs ? 'Pausar' : 'Pause') : (isEs ? 'Ejecutar' : 'Run')}
           >
             {isPlaying ? <Pause size={14} /> : <Play size={14} fill="currentColor" />}
-            <span>{isPlaying ? 'Pausar' : 'Ejecutar'}</span>
+            <span>{isPlaying ? (isEs ? 'Pausar' : 'Pause') : (isEs ? 'Ejecutar' : 'Run')}</span>
           </button>
 
           <button
             className="pl-btn pl-btn--outline pl-btn--sm"
             onClick={handleStepForward}
-            title="Avanzar 1 sentencia"
+            title={isEs ? 'Avanzar 1 sentencia' : 'Step 1 statement'}
           >
             <StepForward size={14} />
-            <span>Paso</span>
+            <span>{isEs ? 'Paso' : 'Step'}</span>
           </button>
 
           <button
             className="pl-btn pl-btn--outline pl-btn--sm"
-            onClick={handleReset}
-            title="Reiniciar ejecución"
+            onClick={() => resetExecution()}
+            title={isEs ? 'Reiniciar ejecución' : 'Reset execution'}
           >
             <RotateCcw size={14} />
-            <span>Reiniciar</span>
+            <span>{isEs ? 'Reiniciar' : 'Reset'}</span>
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem', color: 'var(--pl-ink-2)' }}>
-            <span>Velocidad:</span>
+            <span>{isEs ? 'Velocidad:' : 'Speed:'}</span>
             <select
               value={speedMs}
               onChange={e => setSpeedMs(Number(e.target.value))}
@@ -351,10 +410,10 @@ export const IDEView: React.FC<IDEViewProps> = ({
                 outline: 'none'
               }}
             >
-              <option value={700}>0.5x (Lento)</option>
-              <option value={350}>1x (Normal)</option>
-              <option value={150}>2x (Rápido)</option>
-              <option value={30}>Max (Ráfaga)</option>
+              <option value={700}>0.5x ({isEs ? 'Lento' : 'Slow'})</option>
+              <option value={350}>1x ({isEs ? 'Normal' : 'Normal'})</option>
+              <option value={150}>2x ({isEs ? 'Rápido' : 'Fast'})</option>
+              <option value={30}>Max ({isEs ? 'Ráfaga' : 'Burst'})</option>
             </select>
           </div>
 
@@ -363,17 +422,43 @@ export const IDEView: React.FC<IDEViewProps> = ({
               className="pl-btn pl-btn--sm"
               style={{ background: 'var(--pl-syn-str)', color: '#fff' }}
               onClick={handleValidateExercise}
-              title="Evaluar con casos de prueba"
+              title={isEs ? 'Evaluar con casos de prueba' : 'Validate test cases'}
             >
               <CheckCircle size={14} />
-              <span>Comprobar</span>
+              <span>{isEs ? 'Comprobar' : 'Check'}</span>
             </button>
           )}
+
+          {/* Download & Upload File Actions */}
+          <button
+            className="pl-btn pl-btn--outline pl-btn--sm"
+            onClick={handleDownloadCode}
+            title={isEs ? 'Descargar código (.pseudo)' : 'Download code (.pseudo)'}
+          >
+            <Download size={14} />
+            <span>{isEs ? 'Descargar' : 'Download'}</span>
+          </button>
+
+          <button
+            className="pl-btn pl-btn--outline pl-btn--sm"
+            onClick={() => fileInputRef.current?.click()}
+            title={isEs ? 'Abrir archivo de código local' : 'Open local code file'}
+          >
+            <Upload size={14} />
+            <span>{isEs ? 'Abrir' : 'Open'}</span>
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleUploadFile}
+            accept=".pseudo,.txt,.psc"
+            style={{ display: 'none' }}
+          />
         </div>
 
         {/* Global toggles */}
         <div className="ide-toolbar__group">
-          <button className="pl-icon-btn" onClick={onToggleTheme} title="Tema">
+          <button className="pl-icon-btn" onClick={onToggleTheme} title={isEs ? 'Cambiar tema' : 'Toggle theme'}>
             {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
           </button>
           <button className="pl-btn pl-btn--outline pl-btn--sm" onClick={onToggleLang}>
@@ -391,19 +476,19 @@ export const IDEView: React.FC<IDEViewProps> = ({
               className={`ide-sidebar__tab ${activeSidebarTab === 'track' ? 'ide-sidebar__tab--active' : ''}`}
               onClick={() => setActiveSidebarTab('track')}
             >
-              Ruta (15 Módulos)
+              {isEs ? 'Ruta (15 Módulos)' : 'Curriculum (15)'}
             </button>
             <button
               className={`ide-sidebar__tab ${activeSidebarTab === 'examples' ? 'ide-sidebar__tab--active' : ''}`}
               onClick={() => setActiveSidebarTab('examples')}
             >
-              Ejemplos (86)
+              {isEs ? 'Ejemplos (86)' : 'Examples (86)'}
             </button>
             <button
               className={`ide-sidebar__tab ${activeSidebarTab === 'specs' ? 'ide-sidebar__tab--active' : ''}`}
               onClick={() => setActiveSidebarTab('specs')}
             >
-              Manual
+              {isEs ? 'Manual' : 'Specs'}
             </button>
           </div>
 
@@ -417,7 +502,16 @@ export const IDEView: React.FC<IDEViewProps> = ({
                 return (
                   <div key={mod.id} style={{ borderBottom: '1px solid var(--pl-line-soft)' }}>
                     <div
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
                       onClick={() => toggleModuleAccordion(mod.id)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggleModuleAccordion(mod.id);
+                        }
+                      }}
                       style={{
                         padding: '0.65rem 0.8rem',
                         cursor: 'pointer',
@@ -432,7 +526,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                         {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                         <span style={{ color: 'var(--pl-brand)' }}>{mod.id}:</span>
-                        <span>{mod.title_es}</span>
+                        <span>{isEs ? mod.title_es : mod.title_en || mod.title_es}</span>
                       </div>
                       <span className="pl-mono" style={{ fontSize: '0.72rem', color: 'var(--pl-ink-2)' }}>
                         {modExercises.length}
@@ -446,11 +540,21 @@ export const IDEView: React.FC<IDEViewProps> = ({
                           return (
                             <div
                               key={ex.id}
+                              role="button"
+                              tabIndex={0}
                               className={`ide-list-item ${isSelected ? 'ide-list-item--active' : ''}`}
                               onClick={() => handleSelectExercise(ex)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  handleSelectExercise(ex);
+                                }
+                              }}
                             >
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                                <span style={{ fontWeight: 600, fontSize: '0.82rem' }}>{ex.title_es}</span>
+                                <span style={{ fontWeight: 600, fontSize: '0.82rem' }}>
+                                  {isEs ? ex.title_es : ex.title_en || ex.title_es}
+                                </span>
                                 <span
                                   className="pl-mono"
                                   style={{
@@ -465,7 +569,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
                                 </span>
                               </div>
                               <div style={{ fontSize: '0.76rem', color: 'var(--pl-ink-2)', lineHeight: 1.3 }}>
-                                {ex.summary_es}
+                                {isEs ? ex.summary_es : ex.summary_en || ex.summary_es}
                               </div>
                             </div>
                           );
@@ -484,15 +588,23 @@ export const IDEView: React.FC<IDEViewProps> = ({
               {examplesData.map((ex: any) => (
                 <div
                   key={ex.id}
+                  role="button"
+                  tabIndex={0}
                   className="ide-list-item"
                   onClick={() => handleSelectExample(ex)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSelectExample(ex);
+                    }
+                  }}
                 >
                   <div style={{ fontWeight: 600, fontSize: '0.83rem', color: 'var(--pl-ink)' }}>
-                    {ex.title_es || ex.id}
+                    {isEs ? ex.title_es || ex.id : ex.title_en || ex.title_es || ex.id}
                   </div>
-                  {ex.summary_es && (
+                  {(ex.summary_es || ex.summary_en) && (
                     <div style={{ fontSize: '0.75rem', color: 'var(--pl-ink-2)', marginTop: '0.2rem' }}>
-                      {ex.summary_es}
+                      {isEs ? ex.summary_es : ex.summary_en || ex.summary_es}
                     </div>
                   )}
                 </div>
@@ -506,10 +618,10 @@ export const IDEView: React.FC<IDEViewProps> = ({
               {specsData.map((sp: any) => (
                 <div key={sp.id} style={{ marginBottom: '1.2rem' }}>
                   <h4 style={{ fontSize: '0.88rem', color: 'var(--pl-brand)', marginBottom: '0.3rem' }}>
-                    {sp.title_es}
+                    {isEs ? sp.title_es : sp.title_en || sp.title_es}
                   </h4>
                   <p style={{ fontSize: '0.78rem', color: 'var(--pl-ink-2)', lineHeight: 1.4 }}>
-                    {sp.summary_es}
+                    {isEs ? sp.summary_es : sp.summary_en || sp.summary_es}
                   </p>
                 </div>
               ))}
@@ -520,13 +632,13 @@ export const IDEView: React.FC<IDEViewProps> = ({
           {selectedExercise && (
             <div style={{ padding: '0.8rem', borderTop: '1px solid var(--pl-line)', background: 'var(--pl-sunken)', maxHeight: '180px', overflowY: 'auto' }}>
               <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--pl-brand)', marginBottom: '0.3rem' }}>
-                Enunciado del reto:
+                {isEs ? 'Enunciado del reto:' : 'Challenge Statement:'}
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--pl-ink)', lineHeight: 1.4 }}>
-                {selectedExercise.statement_es}
+                {isEs ? selectedExercise.statement_es : selectedExercise.statement_en || selectedExercise.statement_es}
               </div>
               <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--pl-ink-2)' }}>
-                {selectedExercise.visibleCases?.length || 0} casos visibles · {selectedExercise.hiddenCases?.length || 0} casos ocultos
+                {selectedExercise.visibleCases?.length || 0} {isEs ? 'casos visibles' : 'visible cases'} · {selectedExercise.hiddenCases?.length || 0} {isEs ? 'casos adicionales' : 'additional test cases'}
               </div>
             </div>
           )}
@@ -536,8 +648,26 @@ export const IDEView: React.FC<IDEViewProps> = ({
         <section className="ide-center">
           {/* Syntax Error Banner */}
           {syntaxError && (
-            <div style={{ background: '#fef2f2', color: '#991b1b', padding: '0.4rem 0.8rem', fontSize: '0.82rem', borderBottom: '1px solid #fecaca' }}>
-              <strong>Error sintáctico:</strong> {syntaxError}
+            <div style={{ background: '#fef2f2', color: '#991b1b', padding: '0.45rem 0.8rem', fontSize: '0.82rem', borderBottom: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <AlertCircle size={15} style={{ flexShrink: 0 }} />
+              <span><strong>{isEs ? 'Error léxico o sintáctico:' : 'Syntax or Lexical Error:'}</strong> {syntaxError}</span>
+            </div>
+          )}
+
+          {/* Runtime Error Banner */}
+          {runtimeError && (
+            <div style={{ background: '#fef2f2', color: '#991b1b', padding: '0.45rem 0.8rem', fontSize: '0.82rem', borderBottom: '1px solid #fecaca', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                <span><strong>{isEs ? 'Error en tiempo de ejecución:' : 'Runtime Error:'}</strong> {runtimeError}</span>
+              </div>
+              <button
+                className="pl-btn pl-btn--outline pl-btn--sm"
+                onClick={() => resetExecution()}
+                style={{ borderColor: '#fca5a5', padding: '0.15rem 0.5rem', fontSize: '0.75rem' }}
+              >
+                {isEs ? 'Reiniciar' : 'Reset'}
+              </button>
             </div>
           )}
 
@@ -561,10 +691,21 @@ export const IDEView: React.FC<IDEViewProps> = ({
             <textarea
               className="ide-editor-textarea"
               value={code}
-              onChange={e => setCode(e.target.value)}
+              onChange={e => {
+                const newCode = e.target.value;
+                setCode(newCode);
+                setIsPlaying(false);
+                setIsWaitingInput(false);
+                setActiveLine(undefined);
+                setInterpreter(null);
+                setStepGenerator(null);
+                setRuntimeError(null);
+                localStorage.setItem('pseudoflow-draft-code', newCode);
+              }}
               spellCheck={false}
               autoCapitalize="off"
               autoComplete="off"
+              aria-label={isEs ? 'Editor de pseudocódigo interactivo' : 'Interactive pseudocode code editor'}
             />
           </div>
 
@@ -573,13 +714,13 @@ export const IDEView: React.FC<IDEViewProps> = ({
             <div className="ide-console-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <Terminal size={14} />
-                <span>Consola E/S & Validación</span>
+                <span>{isEs ? 'Consola E/S & Validación' : 'I/O Console & Testing'}</span>
               </div>
               <button
                 style={{ background: 'transparent', border: 'none', color: 'var(--pl-ink-2)', cursor: 'pointer', fontSize: '0.78rem' }}
                 onClick={() => setConsoleLogs([])}
               >
-                Limpiar
+                {isEs ? 'Limpiar' : 'Clear'}
               </button>
             </div>
 
@@ -598,19 +739,28 @@ export const IDEView: React.FC<IDEViewProps> = ({
                 >
                   <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.3rem' }}>
                     <CheckCircle size={15} />
-                    <span>{testResults.passed ? '¡Todos los casos de prueba superados!' : 'La solución no pasó todas las pruebas'}</span>
+                    <span>
+                      {testResults.passed
+                        ? (isEs ? '¡Todos los casos de prueba superados!' : 'All test cases passed successfully!')
+                        : (isEs ? 'La solución no pasó todas las pruebas' : 'Solution failed some test cases')}
+                    </span>
                   </div>
                   {testResults.details.map((d: any) => (
                     <div key={d.index} style={{ fontSize: '0.78rem', marginTop: '0.2rem' }}>
-                      Caso {d.index} {d.isHidden ? '(oculto)' : ''}: {d.passed ? '✓ Correcto' : `✗ Error. Salida obtenida: [${d.actualOutputs?.join(', ')}], esperada: [${d.expectedOutputs?.join(', ')}]`}
+                      {isEs ? 'Caso' : 'Case'} {d.index} {d.isAdditional ? (isEs ? '(caso adicional)' : '(additional case)') : ''}:{' '}
+                      {d.passed
+                        ? (isEs ? '✓ Correcto' : '✓ Passed')
+                        : `${isEs ? '✗ Error' : '✗ Failed'}. ${isEs ? 'Salida obtenida' : 'Actual'}: [${d.actualOutputs?.join(', ')}], ${isEs ? 'esperada' : 'expected'}: [${d.expectedOutputs?.join(', ')}]${d.error ? ` (${d.error})` : ''}`}
                     </div>
                   ))}
                 </div>
               )}
 
-              {consoleLogs.length === 0 && !isWaitingInput && (
+              {consoleLogs.length === 0 && !isWaitingInput && !runtimeError && (
                 <div style={{ color: 'var(--pl-ink-3)', fontStyle: 'italic' }}>
-                  La salida de las sentencias <code>Escribir</code> aparecerá aquí.
+                  {isEs
+                    ? 'La salida de las sentencias Escribir y diagnósticos aparecerá aquí.'
+                    : 'Output from Escribir statements and runtime diagnostics will appear here.'}
                 </div>
               )}
 
@@ -620,7 +770,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
 
               {isWaitingInput && (
                 <div style={{ color: 'var(--pl-brand)', fontWeight: 600 }}>
-                  [Esperando entrada de usuario para sentencia Leer...]
+                  [{isEs ? 'Esperando entrada de usuario para sentencia Leer...' : 'Waiting for user input for Leer statement...'}]
                 </div>
               )}
             </div>
@@ -631,13 +781,13 @@ export const IDEView: React.FC<IDEViewProps> = ({
                 <input
                   type="text"
                   className="ide-console-input"
-                  placeholder="Introduce el valor y pulsa Enter..."
+                  placeholder={isEs ? 'Introduce el valor y pulsa Enter...' : 'Type value and press Enter...'}
                   value={interactiveInput}
                   onChange={e => setInteractiveInput(e.target.value)}
                   autoFocus
                 />
                 <button type="submit" className="pl-btn pl-btn--primary pl-btn--sm" style={{ marginLeft: '0.5rem' }}>
-                  Enviar
+                  {isEs ? 'Enviar' : 'Send'}
                 </button>
               </form>
             )}
@@ -652,28 +802,28 @@ export const IDEView: React.FC<IDEViewProps> = ({
               onClick={() => setActiveSurfaceTab('flow')}
             >
               <GitBranch size={14} />
-              <span>Ordinograma</span>
+              <span>{isEs ? 'Ordinograma' : 'Flowchart'}</span>
             </button>
             <button
               className={`ide-surface-tab ${activeSurfaceTab === 'ns' ? 'ide-surface-tab--active' : ''}`}
               onClick={() => setActiveSurfaceTab('ns')}
             >
               <Layers size={14} />
-              <span>Estructograma</span>
+              <span>{isEs ? 'Estructograma' : 'Structogram'}</span>
             </button>
             <button
               className={`ide-surface-tab ${activeSurfaceTab === 'trace' ? 'ide-surface-tab--active' : ''}`}
               onClick={() => setActiveSurfaceTab('trace')}
             >
               <Table size={14} />
-              <span>Prueba de Escritorio</span>
+              <span>{isEs ? 'Prueba de Escritorio' : 'Trace Table'}</span>
             </button>
             <button
               className={`ide-surface-tab ${activeSurfaceTab === 'uml' ? 'ide-surface-tab--active' : ''}`}
               onClick={() => setActiveSurfaceTab('uml')}
             >
               <Box size={14} />
-              <span>Clases UML</span>
+              <span>{isEs ? 'Clases UML' : 'UML Classes'}</span>
             </button>
             <button
               className={`ide-surface-tab ${activeSurfaceTab === 'export' ? 'ide-surface-tab--active' : ''}`}

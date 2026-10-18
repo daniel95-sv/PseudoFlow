@@ -1,22 +1,83 @@
+/**
+ * Transpilador experimental de Pseudocódigo a Python 3 y Rust
+ * Proporciona correspondencias sintácticas idiomáticas y seguras para fines didácticos.
+ */
+
+function splitArgs(raw: string): string[] {
+  const parts: string[] = [];
+  let current = '';
+  let inString = false;
+  let quoteChar = '';
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if ((ch === '"' || ch === "'") && (i === 0 || raw[i - 1] !== '\\')) {
+      if (!inString) {
+        inString = true;
+        quoteChar = ch;
+      } else if (ch === quoteChar) {
+        inString = false;
+      }
+    }
+    if (ch === ',' && !inString) {
+      parts.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim()) {
+    parts.push(current.trim());
+  }
+  return parts;
+}
+
+function convertConditionToPython(cond: string): string {
+  let res = cond
+    .replace(/\bVerdadero\b/gi, 'True')
+    .replace(/\bFalso\b/gi, 'False')
+    .replace(/\bY\b/g, ' and ')
+    .replace(/\bO\b/g, ' or ')
+    .replace(/\bNO\b/g, ' not ')
+    .replace(/<>/g, '!=');
+
+  // Reemplazar '=' simple por '==' sin afectar '<=', '>=', '!=', ':=', '=='
+  res = res.replace(/(?<![<>=!:])=(?!=)/g, '==');
+  return res.trim();
+}
+
+function convertConditionToRust(cond: string): string {
+  let res = cond
+    .replace(/\bVerdadero\b/gi, 'true')
+    .replace(/\bFalso\b/gi, 'false')
+    .replace(/\bY\b/g, ' && ')
+    .replace(/\bO\b/g, ' || ')
+    .replace(/\bNO\b/g, ' !')
+    .replace(/<>/g, '!=');
+
+  // Reemplazar '=' simple por '==' sin afectar '<=', '>=', '!=', ':=', '=='
+  res = res.replace(/(?<![<>=!:])=(?!=)/g, '==');
+  return res.trim();
+}
+
 export function transpileToPython(pseudocode: string): string {
   const lines = pseudocode.split('\n');
   const pyLines: string[] = [];
   let indent = 0;
 
-  for (let raw of lines) {
-    let line = raw.trim();
+  for (const raw of lines) {
+    const line = raw.trim();
     if (!line) {
       pyLines.push('');
       continue;
     }
 
-    // Comment
+    // Comentarios
     if (line.startsWith('//')) {
       pyLines.push('    '.repeat(indent) + '# ' + line.substring(2).trim());
       continue;
     }
 
-    // Ends
+    // Cierres de bloques
     if (/^(FinProceso|FinAlgoritmo|endAlgorithm|FinSi|endif|FinMientras|endwhile|FinPara|endfor|FinSubProceso|endsubprogram|FinClase|endclass|FinMetodo|endmethod|FinSegun|endswitch)/i.test(line)) {
       indent = Math.max(0, indent - 1);
       continue;
@@ -35,9 +96,8 @@ export function transpileToPython(pseudocode: string): string {
       continue;
     }
 
-    // Definir / define (declare) -> optional in Python
+    // Definir / define (declare)
     if (/^(?:Definir|define)\s+/i.test(line)) {
-      // e.g. Definir a Como Entero; -> # a: int
       const m = line.match(/^(?:Definir|define)\s+([a-zA-Z0-9_]+)\s+(?:Como|as)\s+([a-zA-Z0-9_]+)/i);
       if (m) {
         pyLines.push('    '.repeat(indent) + `# ${m[1]}: ${m[2]}`);
@@ -45,7 +105,7 @@ export function transpileToPython(pseudocode: string): string {
       continue;
     }
 
-    // Dimension -> list creation
+    // Dimension -> creación de lista
     const dimMatch = line.match(/^(?:Dimension|dimension)\s+([a-zA-Z0-9_]+)\[([^\]]+)\]/i);
     if (dimMatch) {
       const name = dimMatch[1];
@@ -61,7 +121,7 @@ export function transpileToPython(pseudocode: string): string {
     // Escribir / write
     const writeMatch = line.match(/^(?:Escribir|write)\s+(.+?);?$/i);
     if (writeMatch) {
-      let args = writeMatch[1].replace(/;/g, '');
+      const args = writeMatch[1].replace(/;+$/, '');
       pyLines.push('    '.repeat(indent) + `print(${args})`);
       continue;
     }
@@ -76,12 +136,7 @@ export function transpileToPython(pseudocode: string): string {
     // Si / if
     const ifMatch = line.match(/^(?:Si|if)\s+(.+?)\s+(?:Entonces|then)/i);
     if (ifMatch) {
-      const cond = ifMatch[1]
-        .replace(/Y/g, 'and')
-        .replace(/O/g, 'or')
-        .replace(/NO/g, 'not')
-        .replace(/=/g, '==')
-        .replace(/<>/g, '!=');
+      const cond = convertConditionToPython(ifMatch[1]);
       pyLines.push('    '.repeat(indent) + `if ${cond}:`);
       indent++;
       continue;
@@ -90,12 +145,7 @@ export function transpileToPython(pseudocode: string): string {
     // Mientras / while
     const whileMatch = line.match(/^(?:Mientras|while)\s+(.+?)\s+(?:Hacer|do)/i);
     if (whileMatch) {
-      const cond = whileMatch[1]
-        .replace(/Y/g, 'and')
-        .replace(/O/g, 'or')
-        .replace(/NO/g, 'not')
-        .replace(/=/g, '==')
-        .replace(/<>/g, '!=');
+      const cond = convertConditionToPython(whileMatch[1]);
       pyLines.push('    '.repeat(indent) + `while ${cond}:`);
       indent++;
       continue;
@@ -132,7 +182,7 @@ export function transpileToPython(pseudocode: string): string {
       continue;
     }
 
-    // Assignment <-
+    // Asignación <-
     let cleanLine = line.replace(/<-/g, '=').replace(/;+$/, '');
     cleanLine = cleanLine.replace(/Este\./g, 'self.');
     cleanLine = cleanLine.replace(/Nuevo\s+([a-zA-Z0-9_]+)/g, '$1');
@@ -151,8 +201,8 @@ export function transpileToRust(pseudocode: string): string {
   const rsLines: string[] = ['fn main() {'];
   let indent = 1;
 
-  for (let raw of lines) {
-    let line = raw.trim();
+  for (const raw of lines) {
+    const line = raw.trim();
     if (!line) continue;
 
     if (line.startsWith('//')) {
@@ -175,7 +225,7 @@ export function transpileToRust(pseudocode: string): string {
       continue;
     }
 
-    // Declarations
+    // Declaraciones
     const defMatch = line.match(/^(?:Definir|define)\s+([a-zA-Z0-9_]+)\s+(?:Como|as)\s+([a-zA-Z0-9_]+)/i);
     if (defMatch) {
       const typeMap: Record<string, string> = {
@@ -189,24 +239,32 @@ export function transpileToRust(pseudocode: string): string {
       continue;
     }
 
-    // Escribir
+    // Escribir: soporta múltiples argumentos y cadenas con comas
     const writeMatch = line.match(/^(?:Escribir|write)\s+(.+?);?$/i);
     if (writeMatch) {
-      rsLines.push('    '.repeat(indent) + `println!("{}", ${writeMatch[1].replace(/;/g, '')});`);
+      const rawArgs = writeMatch[1].replace(/;+$/, '').trim();
+      const parts = splitArgs(rawArgs);
+      if (parts.length === 1) {
+        rsLines.push('    '.repeat(indent) + `println!("{}", ${parts[0]});`);
+      } else {
+        const fmt = parts.map(() => '{}').join(' ');
+        rsLines.push('    '.repeat(indent) + `println!("${fmt}", ${parts.join(', ')});`);
+      }
       continue;
     }
 
-    // Assignment
+    // Asignación
     const assignMatch = line.match(/^([a-zA-Z0-9_[\\],. ]+?)\s*(?:<-|:=|=)\s*(.+?);?$/);
     if (assignMatch && !line.startsWith('Para') && !line.startsWith('Si') && !line.startsWith('Mientras')) {
       rsLines.push('    '.repeat(indent) + `${assignMatch[1].trim()} = ${assignMatch[2].trim()};`);
       continue;
     }
 
-    // Loops
+    // Bucles
     const whileMatch = line.match(/^(?:Mientras|while)\s+(.+?)\s+(?:Hacer|do)/i);
     if (whileMatch) {
-      rsLines.push('    '.repeat(indent) + `while ${whileMatch[1].replace(/=/g, '==')} {`);
+      const cond = convertConditionToRust(whileMatch[1]);
+      rsLines.push('    '.repeat(indent) + `while ${cond} {`);
       indent++;
       continue;
     }
@@ -218,10 +276,11 @@ export function transpileToRust(pseudocode: string): string {
       continue;
     }
 
-    // If
+    // Condicionales Si
     const ifMatch = line.match(/^(?:Si|if)\s+(.+?)\s+(?:Entonces|then)/i);
     if (ifMatch) {
-      rsLines.push('    '.repeat(indent) + `if ${ifMatch[1].replace(/=/g, '==')} {`);
+      const cond = convertConditionToRust(ifMatch[1]);
+      rsLines.push('    '.repeat(indent) + `if ${cond} {`);
       indent++;
       continue;
     }

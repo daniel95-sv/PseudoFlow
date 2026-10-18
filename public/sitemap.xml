@@ -3,9 +3,6 @@
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://pseudoflow.pages.dev/</loc>
-    <xhtml:link rel="alternate" hreflang="es" href="https://pseudoflow.pages.dev/" />
-    <xhtml:link rel="alternate" hreflang="en" href="https://pseudoflow.pages.dev/" />
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://pseudoflow.pages.dev/" />
     <lastmod>2026-10-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>

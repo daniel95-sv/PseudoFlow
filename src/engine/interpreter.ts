@@ -34,6 +34,14 @@ export class Interpreter {
     thisInstance?: ObjectInstance;
   }> = [];
 
+  public static readonly MAX_STEPS = 50_000;
+  public static readonly MAX_CALL_STACK_DEPTH = 100;
+  public static readonly MAX_ARRAY_TOTAL_ELEMENTS = 100_000;
+
+  private maxSteps: number = Interpreter.MAX_STEPS;
+  private maxCallStackDepth: number = Interpreter.MAX_CALL_STACK_DEPTH;
+  private maxArrayElements: number = Interpreter.MAX_ARRAY_TOTAL_ELEMENTS;
+
   private objectCounter: number = 0;
   private inputs: string[] = [];
   private outputs: string[] = [];
@@ -45,8 +53,12 @@ export class Interpreter {
   public isFinished: boolean = false;
   public error?: string;
 
-  constructor(program: ProgramNode) {
+  constructor(program: ProgramNode, options?: { maxSteps?: number; maxCallStackDepth?: number; maxArrayElements?: number }) {
     this.program = program;
+    if (options?.maxSteps) this.maxSteps = options.maxSteps;
+    if (options?.maxCallStackDepth) this.maxCallStackDepth = options.maxCallStackDepth;
+    if (options?.maxArrayElements) this.maxArrayElements = options.maxArrayElements;
+
     // Register classes and subprograms
     for (const cls of program.classes) {
       this.classes.set(cls.name.toLowerCase(), cls);
@@ -112,12 +124,15 @@ export class Interpreter {
     }
   }
 
-  public runAll(inputs: string[] = []): { outputs: string[]; steps: TraceStep[]; error?: string } {
+  public runAll(inputs: string[] = [], throwOnError: boolean = false): { outputs: string[]; steps: TraceStep[]; error?: string } {
     this.setInputs(inputs);
     const gen = this.generateSteps();
     while (!this.isFinished) {
       const res = gen.next();
       if (res.done) break;
+    }
+    if (throwOnError && this.error) {
+      throw new Error(this.error);
     }
     return {
       outputs: this.outputs,
@@ -125,6 +140,11 @@ export class Interpreter {
       error: this.error
     };
   }
+
+  public getVariable(name: string): any {
+    return this.resolveVariable(name);
+  }
+
 
   private *executeBlock(statements: ASTNode[]): Generator<TraceStep, boolean | void, unknown> {
     for (const stmt of statements) {
@@ -136,6 +156,9 @@ export class Interpreter {
 
   private *executeStatement(stmt: ASTNode): Generator<TraceStep, boolean | void, unknown> {
     this.stepNumber++;
+    if (this.stepNumber > this.maxSteps) {
+      throw new Error(`Límite de ejecución alcanzado (${this.maxSteps} pasos). Posible bucle infinito o recursión excesiva.`);
+    }
 
     switch (stmt.type) {
       case 'Declaration': {
@@ -156,7 +179,22 @@ export class Interpreter {
 
       case 'Dimension': {
         const dim = stmt as DimensionNode;
-        const sizes = dim.sizes.map(s => Math.floor(this.evalExpression(s)));
+        const sizes: number[] = [];
+        for (const sExpr of dim.sizes) {
+          const val = this.evalExpression(sExpr);
+          if (typeof val !== 'number' || !Number.isFinite(val) || isNaN(val)) {
+            throw new Error(`La dimensión para "${dim.name}" debe ser un número entero válido (línea ${dim.line})`);
+          }
+          const s = Math.floor(val);
+          if (s <= 0) {
+            throw new Error(`El tamaño de la dimensión para "${dim.name}" debe ser mayor a 0 (recibido ${s} en línea ${dim.line})`);
+          }
+          sizes.push(s);
+        }
+        const totalElements = sizes.reduce((acc, sz) => acc * sz, 1);
+        if (totalElements > this.maxArrayElements) {
+          throw new Error(`El arreglo "${dim.name}" solicita ${totalElements} elementos, superando el límite de ${this.maxArrayElements} elementos permitidos.`);
+        }
         const arr = this.createArray(sizes, this.defaultValueFor(dim.dataType));
         this.assignValue(dim.name, arr);
         const step: TraceStep = {
@@ -307,7 +345,12 @@ export class Interpreter {
 
       case 'While': {
         const wh = stmt as WhileNode;
+        let loopCount = 0;
         while (true) {
+          loopCount++;
+          if (loopCount > this.maxSteps || this.stepNumber > this.maxSteps) {
+            throw new Error(`Límite de iteraciones alcanzado en bucle Mientras (posible bucle infinito en línea ${wh.line})`);
+          }
           const cond = Boolean(this.evalExpression(wh.condition));
           const step: TraceStep = {
             stepNumber: this.stepNumber,
@@ -329,7 +372,12 @@ export class Interpreter {
 
       case 'Repeat': {
         const rep = stmt as RepeatNode;
+        let loopCount = 0;
         while (true) {
+          loopCount++;
+          if (loopCount > this.maxSteps || this.stepNumber > this.maxSteps) {
+            throw new Error(`Límite de iteraciones alcanzado en bucle Repetir-Hasta (posible bucle infinito en línea ${rep.line})`);
+          }
           const ret = yield* this.executeBlock(rep.body);
           if (ret) return true;
 
@@ -354,12 +402,17 @@ export class Interpreter {
         const start = Math.floor(this.evalExpression(f.startValue));
         const end = Math.floor(this.evalExpression(f.endValue));
         const stepVal = f.stepValue ? Math.floor(this.evalExpression(f.stepValue)) : 1;
-        if (stepVal === 0) throw new Error('El paso en el bucle Para no puede ser 0');
+        if (stepVal === 0) throw new Error(`El paso en el bucle Para no puede ser 0 (línea ${f.line})`);
 
         let current = start;
         this.assignValue(f.variableName, current);
+        let loopCount = 0;
 
         while ((stepVal > 0 && current <= end) || (stepVal < 0 && current >= end)) {
+          loopCount++;
+          if (loopCount > this.maxSteps || this.stepNumber > this.maxSteps) {
+            throw new Error(`Límite de iteraciones alcanzado en bucle Para (línea ${f.line})`);
+          }
           const step: TraceStep = {
             stepNumber: this.stepNumber,
             lineNumber: f.line,
@@ -431,6 +484,18 @@ export class Interpreter {
       }
 
       case 'BinaryOp': {
+        // Short-circuit logical evaluation
+        if (expr.operator === 'Y') {
+          const leftVal = this.evalExpression(expr.left);
+          if (!leftVal) return false;
+          return Boolean(this.evalExpression(expr.right));
+        }
+        if (expr.operator === 'O') {
+          const leftVal = this.evalExpression(expr.left);
+          if (leftVal) return true;
+          return Boolean(this.evalExpression(expr.right));
+        }
+
         const left = this.evalExpression(expr.left);
         const right = this.evalExpression(expr.right);
         switch (expr.operator) {
@@ -442,10 +507,11 @@ export class Interpreter {
           case '*':
             return left * right;
           case '/':
-            if (right === 0) throw new Error('División por cero');
+            if (right === 0) throw new Error('Error en tiempo de ejecución: División por cero no permitida');
             return left / right;
           case '%':
           case 'MOD':
+            if (right === 0) throw new Error('Error en tiempo de ejecución: Operación módulo con divisor cero no permitida');
             return left % right;
           case '^':
             return Math.pow(left, right);
@@ -462,10 +528,6 @@ export class Interpreter {
             return left > right;
           case '>=':
             return left >= right;
-          case 'Y':
-            return Boolean(left) && Boolean(right);
-          case 'O':
-            return Boolean(left) || Boolean(right);
         }
         return 0;
       }
@@ -573,6 +635,10 @@ export class Interpreter {
   }
 
   private executeMethod(_cls: ClassNode, method: MethodNode, instance: ObjectInstance, args: any[]): any {
+    if (this.callStack.length >= this.maxCallStackDepth) {
+      throw new Error(`Profundidad máxima de pila de llamadas superada (${this.maxCallStackDepth} niveles). Posible recursión infinita.`);
+    }
+
     const frameVars = new Map<string, any>();
     for (let i = 0; i < method.parameters.length; i++) {
       const param = method.parameters[i];
@@ -596,6 +662,10 @@ export class Interpreter {
   }
 
   private invokeSubprogram(sub: SubprogramNode, evalArgs: any[], rawArgs: ExpressionNode[]): any {
+    if (this.callStack.length >= this.maxCallStackDepth) {
+      throw new Error(`Profundidad máxima de pila de llamadas superada (${this.maxCallStackDepth} niveles). Posible recursión infinita en ${sub.name}.`);
+    }
+
     const frameVars = new Map<string, any>();
     const references = new Map<string, { scope: Map<string, any>; key: string }>();
 
@@ -638,24 +708,59 @@ export class Interpreter {
 
   private callBuiltIn(name: string, args: any[]): any {
     const n = name.toLowerCase();
-    if (n === 'rc' || n === 'raiz') return Math.sqrt(args[0] || 0);
-    if (n === 'abs') return Math.abs(args[0] || 0);
-    if (n === 'trunc') return Math.trunc(args[0] || 0);
-    if (n === 'redon') return Math.round(args[0] || 0);
-    if (n === 'azar' || n === 'aleatorio') {
-      const max = args[0] || 10;
-      return Math.floor(Math.random() * max);
+    switch (n) {
+      case 'rc':
+      case 'raiz':
+        if (args.length === 0) throw new Error('La función rc/raiz requiere 1 argumento');
+        if (args[0] < 0) throw new Error('No se puede calcular la raíz cuadrada de un número negativo');
+        return Math.sqrt(args[0]);
+      case 'abs':
+        if (args.length === 0) throw new Error('La función abs requiere 1 argumento');
+        return Math.abs(args[0]);
+      case 'trunc':
+        if (args.length === 0) throw new Error('La función trunc requiere 1 argumento');
+        return Math.trunc(args[0]);
+      case 'redon':
+        if (args.length === 0) throw new Error('La función redon requiere 1 argumento');
+        return Math.round(args[0]);
+      case 'sen':
+      case 'seno':
+        if (args.length === 0) throw new Error('La función sen/seno requiere 1 argumento');
+        return Math.sin(args[0]);
+      case 'cos':
+      case 'coseno':
+        if (args.length === 0) throw new Error('La función cos/coseno requiere 1 argumento');
+        return Math.cos(args[0]);
+      case 'tan':
+      case 'tangente':
+        if (args.length === 0) throw new Error('La función tan/tangente requiere 1 argumento');
+        return Math.tan(args[0]);
+      case 'ln':
+        if (args.length === 0) throw new Error('La función ln requiere 1 argumento');
+        if (args[0] <= 0) throw new Error('El argumento de la función ln debe ser estrictamente positivo');
+        return Math.log(args[0]);
+      case 'exp':
+        if (args.length === 0) throw new Error('La función exp requiere 1 argumento');
+        return Math.exp(args[0]);
+      case 'azar':
+      case 'aleatorio':
+        const max = args[0] !== undefined ? args[0] : 10;
+        return Math.floor(Math.random() * max);
+      case 'longitud':
+        return String(args[0] !== undefined ? args[0] : '').length;
+      case 'mayusculas':
+        return String(args[0] !== undefined ? args[0] : '').toUpperCase();
+      case 'minusculas':
+        return String(args[0] !== undefined ? args[0] : '').toLowerCase();
+      case 'subcadena': {
+        const str = String(args[0] !== undefined ? args[0] : '');
+        const start = args[1] !== undefined ? Math.floor(args[1]) : 0;
+        const end = args[2] !== undefined ? Math.floor(args[2]) : str.length;
+        return str.substring(start, end + 1);
+      }
+      default:
+        throw new Error(`Función no definida o desconocida: "${name}"`);
     }
-    if (n === 'longitud') return String(args[0] || '').length;
-    if (n === 'mayusculas') return String(args[0] || '').toUpperCase();
-    if (n === 'minusculas') return String(args[0] || '').toLowerCase();
-    if (n === 'subcadena') {
-      const str = String(args[0] || '');
-      const start = (args[1] || 0);
-      const end = (args[2] || str.length);
-      return str.substring(start, end + 1);
-    }
-    return 0;
   }
 
   // Variable & array storage helpers
@@ -664,7 +769,9 @@ export class Interpreter {
     if (frame) {
       if (frame.references?.has(name)) {
         const ref = frame.references.get(name)!;
-        return ref.scope.get(ref.key);
+        if (ref.scope.has(ref.key)) {
+          return ref.scope.get(ref.key);
+        }
       }
       if (frame.variables.has(name)) {
         return frame.variables.get(name);
@@ -678,7 +785,7 @@ export class Interpreter {
     if (mainFrame?.variables.has(name)) {
       return mainFrame.variables.get(name);
     }
-    return 0;
+    throw new Error(`Variable no definida o no inicializada: "${name}"`);
   }
 
   private assignValue(name: string, val: any): void {
