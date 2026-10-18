@@ -290,7 +290,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </h2>
             <p className="pl-lede" style={{ color: '#b9e4e6' }}>
               {isEs
-                ? 'Quince módulos en tres tramos, diseñados para aprender en orden. Cada módulo explica un concepto, lo demuestra en ejecución y cierra con ejercicios que se evalúan automáticamente con casos visibles y ocultos.'
+                ? 'Quince módulos en tres tramos, diseñados para aprender en orden. Cada módulo explica un concepto, lo demuestra en ejecución y cierra con ejercicios que se evalúan automáticamente con casos visibles y casos adicionales de prueba.'
                 : '15 modules across 3 tracks, guiding learners from imperative foundations to object-oriented programming.'}
             </p>
           </div>
@@ -448,7 +448,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
             <div className="metrics__item">
               <dt className="metrics__value pl-mono">95</dt>
-              <dd className="metrics__label">{isEs ? 'ejercicios con casos visibles y ocultos' : 'auto-validated guided exercises'}</dd>
+              <dd className="metrics__label">{isEs ? 'ejercicios con casos de prueba formativos' : 'auto-validated guided exercises'}</dd>
             </div>
             <div className="metrics__item">
               <dt className="metrics__value pl-mono">86</dt>

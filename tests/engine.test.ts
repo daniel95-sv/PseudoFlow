@@ -772,6 +772,76 @@ describe('Auditoría v3 — Correcciones P1, P2 y P3', () => {
     safeStorageRemove('test-key-auditoria');
     expect(safeStorageGet('test-key-auditoria', 'predeterminado')).toBe('predeterminado');
   });
+
+  it('P2: throws parser error when block nesting depth exceeds MAX_BLOCK_DEPTH (Auditoria nueva)', () => {
+    let deepCode = 'x <- 1;\n';
+    for (let i = 0; i < 55; i++) {
+      deepCode = `Si Verdadero Entonces\n${deepCode}\nFinSi\n`;
+    }
+    const fullCode = `Proceso AnidamientoExtremo\n${deepCode}\nFinProceso`;
+    const tokens = new Lexer(fullCode).tokenize();
+    const parser = new Parser(tokens);
+    expect(() => parser.parse()).toThrowError(/Límite de anidamiento de bloques superado/);
+  });
+
+  it('P1: runAllAsync executes cooperatively and yields to event loop (Auditoria nueva)', async () => {
+    const code = `
+      Proceso BuclePaso
+        Definir sum Como Entero;
+        sum <- 0;
+        Para i <- 1 Hasta 100 Hacer
+          sum <- sum + i;
+        FinPara
+        Escribir "Suma=", sum;
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    const res = await interp.runAllAsync([], false, 2000, 5);
+    expect(res.outputs).toEqual(['Suma=5050']);
+    expect(res.error).toBeUndefined();
+  });
+
+  it('P1: runAllAsync supports cooperative cancellation mid-execution (Auditoria nueva)', async () => {
+    const code = `
+      Proceso BucleLargo
+        Definir c Como Entero;
+        c <- 0;
+        Mientras Verdadero Hacer
+          c <- c + 1;
+        FinMientras
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast, { maxExecutionTimeMs: 10000 });
+    let cancelled = false;
+    setTimeout(() => {
+      cancelled = true;
+    }, 25);
+    const res = await interp.runAllAsync([], false, 10000, 10, () => cancelled);
+    expect(res.error).toMatch(/cancelada por el usuario/);
+  });
+
+  it('P2: reclaims array quota when subprogram call frame exits (Auditoria nueva)', () => {
+    const code = `
+      SubProceso CrearArrayLocal()
+        Dimension temp[80];
+      FinSubProceso
+
+      Proceso TestScopeArrays
+        Para i <- 1 Hasta 10 Hacer
+          CrearArrayLocal();
+        FinPara
+        Escribir "Completado";
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    // System quota is 150 elements; 10 * 80 = 800 cumulative, but at most 80 live in memory simultaneously
+    const interp = new Interpreter(ast, { maxSystemTotalArrayElements: 150 });
+    const res = interp.runAll();
+    expect(res.outputs).toEqual(['Completado']);
+    expect(res.error).toBeUndefined();
+  });
 });
 
 

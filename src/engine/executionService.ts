@@ -34,6 +34,8 @@ function getOrCreateWorker(): Worker | null {
   return activeWorker;
 }
 
+let isFallbackCancelled = false;
+
 export function terminateWorker(): void {
   if (activeWorker) {
     activeWorker.terminate();
@@ -42,6 +44,7 @@ export function terminateWorker(): void {
 }
 
 export function cancelCurrentValidation(): void {
+  isFallbackCancelled = true;
   terminateWorker();
 }
 
@@ -55,6 +58,7 @@ export async function runExerciseValidation(
   hiddenCases: TestCase[],
   onProgress?: (progress: ValidationProgress) => void
 ): Promise<ValidationResult> {
+  isFallbackCancelled = false;
   const taskId = `task_${++currentTaskId}_${Date.now()}`;
   const worker = getOrCreateWorker();
 
@@ -139,6 +143,18 @@ async function runAsyncValidationFallback(
     const details: ValidationDetail[] = [];
 
     for (let i = 0; i < allCases.length; i++) {
+      if (isFallbackCancelled) {
+        return {
+          passed: false,
+          details: [{
+            index: i + 1,
+            error: 'Validación detenida por el usuario.',
+            passed: false,
+            isAdditional: false
+          }]
+        };
+      }
+
       onProgress?.({ current: i + 1, total: allCases.length });
 
       // Yield control to the browser so UI updates and stays responsive
@@ -146,7 +162,25 @@ async function runAsyncValidationFallback(
 
       const testCase = allCases[i];
       const testInterp = new Interpreter(parsedAst, { maxExecutionTimeMs: 2500 });
-      const res = testInterp.runAll(testCase.inputs || [], false, 2500);
+      const res = await testInterp.runAllAsync(
+        testCase.inputs || [],
+        false,
+        2500,
+        16,
+        () => isFallbackCancelled
+      );
+
+      if (isFallbackCancelled) {
+        return {
+          passed: false,
+          details: [{
+            index: i + 1,
+            error: 'Validación detenida por el usuario.',
+            passed: false,
+            isAdditional: false
+          }]
+        };
+      }
 
       const actualStr = res.outputs.map(s => s.trim()).join('\n');
       const expectedStr = (testCase.expectedOutputs || []).map((s: string) => s.trim()).join('\n');

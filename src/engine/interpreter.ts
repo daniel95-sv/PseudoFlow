@@ -43,6 +43,7 @@ export class Interpreter {
     references?: Map<string, { scope: Map<string, any>; key: string }>;
     thisInstance?: ObjectInstance;
     currentClass?: ClassNode;
+    allocatedArrayElements?: number;
   }> = [];
 
   public static readonly MAX_STEPS = 50_000;
@@ -201,6 +202,54 @@ export class Interpreter {
     };
   }
 
+  /**
+   * Non-blocking cooperative execution runner that yields to the event loop
+   * every `sliceMs` (default 16ms) to keep UI responsive even under heavy computation.
+   */
+  public async runAllAsync(
+    inputs: string[] = [],
+    throwOnError: boolean = false,
+    maxTimeMs?: number,
+    sliceMs: number = 16,
+    shouldCancel?: () => boolean
+  ): Promise<{ outputs: string[]; steps: TraceStep[]; error?: string }> {
+    this.reset();
+    this.isInteractive = false;
+    if (maxTimeMs !== undefined) this.maxExecutionTimeMs = maxTimeMs;
+    this.startTime = Date.now();
+    this.setInputs(inputs);
+    const gen = this.generateSteps();
+    let lastYieldTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+    while (!this.isFinished) {
+      if (shouldCancel && shouldCancel()) {
+        this.error = 'Validación cancelada por el usuario.';
+        this.isFinished = true;
+        break;
+      }
+      if (this.maxExecutionTimeMs > 0 && (Date.now() - this.startTime > this.maxExecutionTimeMs)) {
+        this.error = `Tiempo límite de ejecución superado (${this.maxExecutionTimeMs} ms). Posible bucle infinito o cómputo excesivo.`;
+        this.isFinished = true;
+        break;
+      }
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (now - lastYieldTime >= sliceMs) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        lastYieldTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      }
+      const res = gen.next();
+      if (res.done) break;
+    }
+    if (throwOnError && this.error) {
+      throw new Error(this.error);
+    }
+    return {
+      outputs: this.outputs,
+      steps: this.steps,
+      error: this.error
+    };
+  }
+
   public getVariable(name: string): any {
     return this.resolveVariable(name);
   }
@@ -277,6 +326,10 @@ export class Interpreter {
           throw new Error(`La cuota total de memoria para arreglos ha sido superada (${this.totalAllocatedArrayElements + totalElements} > ${this.maxSystemTotalArrayElements} elementos).`);
         }
         this.totalAllocatedArrayElements += totalElements;
+        const curFrame = this.currentFrame();
+        if (curFrame) {
+          curFrame.allocatedArrayElements = (curFrame.allocatedArrayElements || 0) + totalElements;
+        }
         const arr = this.createArray(sizes, this.defaultValueFor(dim.dataType));
         this.assignValue(dim.name, arr);
         this.currentFrame()?.variableTypes?.set(dim.name.toLowerCase(), dim.dataType);
@@ -796,6 +849,9 @@ export class Interpreter {
     }
 
     const frame = this.callStack.pop();
+    if (frame?.allocatedArrayElements) {
+      this.totalAllocatedArrayElements = Math.max(0, this.totalAllocatedArrayElements - frame.allocatedArrayElements);
+    }
     return (frame as any)?.returnValue;
   }
 
@@ -845,6 +901,9 @@ export class Interpreter {
     }
 
     const frame = this.callStack.pop();
+    if (frame?.allocatedArrayElements) {
+      this.totalAllocatedArrayElements = Math.max(0, this.totalAllocatedArrayElements - frame.allocatedArrayElements);
+    }
     return (frame as any)?.returnValue;
   }
 
