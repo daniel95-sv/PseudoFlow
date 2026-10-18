@@ -331,4 +331,56 @@ describe('Real Transpiled Code Execution & Compiler Verification (Auditoría PF-
       expect(rsRes.stdout).toBe('RustExito:8');
     }
   }, 35000);
+
+  it('executes Escribir Sin Saltar and empty Escribir matching interpreter in Python', () => {
+    const code = `
+      Algoritmo TestSinSaltar
+        Definir i Como Entero;
+        Para i <- 1 Hasta 3 Con Paso 1 Hacer
+          Escribir Sin Saltar i, "-";
+        FinPara
+        Escribir;
+        Escribir "Fin";
+      FinAlgoritmo
+    `;
+
+    const interpOutputs = runInterpreter(code);
+    expect(interpOutputs).toEqual(['1-2-3-', 'Fin']);
+
+    const py = transpileToPython(code);
+    expect(py).toContain('end=""');
+    expect(py).toContain('print()');
+
+    const pyRes = runPython(py);
+    expect(pyRes.status).toBe(0);
+    expect(pyRes.stdout.split('\n')).toEqual(interpOutputs);
+  }, 15000);
+
+  it('executes Repetir ... Hasta Que matching interpreter in Python', () => {
+    const code = `
+      Algoritmo TestRepetirReal
+        Definir suma Como Entero;
+        Definir contador Como Entero;
+        suma <- 0;
+        contador <- 1;
+        Repetir
+          suma <- suma + contador;
+          contador <- contador + 1;
+        Hasta Que contador > 5;
+        Escribir "SumaFinal:", suma;
+      FinAlgoritmo
+    `;
+
+    const interpOutputs = runInterpreter(code);
+    expect(interpOutputs).toEqual(['SumaFinal:15']);
+
+    const py = transpileToPython(code);
+    expect(py).toContain('while True:');
+    expect(py).toContain('if contador > 5:');
+    expect(py).toContain('break');
+
+    const pyRes = runPython(py);
+    expect(pyRes.status).toBe(0);
+    expect(pyRes.stdout).toBe('SumaFinal:15');
+  }, 15000);
 });

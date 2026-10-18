@@ -122,6 +122,82 @@ export function convertExpressionToPython(expr: string): string {
   return unmaskStrings(res, strings).trim();
 }
 
+function transformRustPowers(expr: string): string {
+  let res = expr;
+  while (res.includes('^')) {
+    const powIdx = res.lastIndexOf('^');
+    if (powIdx === -1) break;
+
+    // Extract left operand before powIdx
+    let leftEnd = powIdx - 1;
+    while (leftEnd >= 0 && /\s/.test(res[leftEnd])) leftEnd--;
+    if (leftEnd < 0) break;
+
+    let leftStart = leftEnd;
+    if (res[leftEnd] === ')') {
+      let depth = 1;
+      leftStart = leftEnd - 1;
+      while (leftStart >= 0 && depth > 0) {
+        if (res[leftStart] === ')') depth++;
+        else if (res[leftStart] === '(') depth--;
+        leftStart--;
+      }
+      leftStart++;
+      let identStart = leftStart - 1;
+      while (identStart >= 0 && /[a-zA-Z0-9_:.]/.test(res[identStart])) {
+        identStart--;
+      }
+      leftStart = identStart + 1;
+    } else {
+      while (leftStart >= 0 && /[a-zA-Z0-9_:.]/.test(res[leftStart])) {
+        leftStart--;
+      }
+      leftStart++;
+    }
+    const leftOperand = res.substring(leftStart, leftEnd + 1).trim();
+
+    // Extract right operand after powIdx
+    let rightStart = powIdx + 1;
+    while (rightStart < res.length && /\s/.test(res[rightStart])) rightStart++;
+    if (rightStart >= res.length) break;
+
+    let rightEnd = rightStart;
+    if (res[rightStart] === '(') {
+      let depth = 1;
+      rightEnd = rightStart + 1;
+      while (rightEnd < res.length && depth > 0) {
+        if (res[rightEnd] === '(') depth++;
+        else if (res[rightEnd] === ')') depth--;
+        rightEnd++;
+      }
+      rightEnd--;
+    } else {
+      while (rightEnd < res.length && /[a-zA-Z0-9_:.]/.test(res[rightEnd])) {
+        rightEnd++;
+      }
+      if (rightEnd < res.length && res[rightEnd] === '(') {
+        let depth = 1;
+        rightEnd++;
+        while (rightEnd < res.length && depth > 0) {
+          if (res[rightEnd] === '(') depth++;
+          else if (res[rightEnd] === ')') depth--;
+          rightEnd++;
+        }
+        rightEnd--;
+      } else {
+        rightEnd--;
+      }
+    }
+    const rightOperand = res.substring(rightStart, rightEnd + 1).trim();
+
+    if (!leftOperand || !rightOperand) break;
+
+    const replacement = `i64::pow(${leftOperand}, (${rightOperand}) as u32)`;
+    res = res.substring(0, leftStart) + replacement + res.substring(rightEnd + 1);
+  }
+  return res;
+}
+
 export function convertConditionToRust(cond: string): string {
   const { masked, strings } = maskStrings(cond);
   let res = masked
@@ -131,8 +207,9 @@ export function convertConditionToRust(cond: string): string {
     .replace(/\bO\b/g, ' || ')
     .replace(/\bNO\b/g, ' !')
     .replace(/<>/g, '!=')
-    .replace(/\bMOD\b/gi, '%')
-    .replace(/(\([^()]+\)|[a-zA-Z0-9_.]+)\s*\^\s*(\([^()]+\)|[a-zA-Z0-9_.]+)/g, 'i64::pow($1, ($2) as u32)');
+    .replace(/\bMOD\b/gi, '%');
+
+  res = transformRustPowers(res);
 
   // Reemplazar '=' simple por '==' sin afectar '<=', '>=', '!=', ':=', '=='
   res = res.replace(/(?<![<>=!:])=(?!=)/g, '==');
@@ -147,8 +224,9 @@ export function convertExpressionToRust(expr: string): string {
     .replace(/\bFalso\b/gi, 'false')
     .replace(/\bMOD\b/gi, '%')
     .replace(/\bDIV\b/gi, '/')
-    .replace(/<>/g, '!=')
-    .replace(/(\([^()]+\)|[a-zA-Z0-9_.]+)\s*\^\s*(\([^()]+\)|[a-zA-Z0-9_.]+)/g, 'i64::pow($1, ($2) as u32)');
+    .replace(/<>/g, '!=');
+
+  res = transformRustPowers(res);
 
   res = convertArrayIndices(res);
   return unmaskStrings(res, strings).trim();
@@ -268,17 +346,46 @@ export function transpileToPython(pseudocode: string): string {
       continue;
     }
 
-    // Escribir / write
-    const writeMatch = line.match(/^(?:Escribir|write)\s+(.+?);?$/i);
+    // Escribir / write / mostrar (con soporte para Sin Saltar / no_newline)
+    if (/^(?:Escribir|write|mostrar)\s*;?$/i.test(line)) {
+      pyLines.push('    '.repeat(indent) + 'print()');
+      continue;
+    }
+    const writeMatch = line.match(/^(?:Escribir|write|mostrar)\s+(.+?);?$/i);
     if (writeMatch) {
-      const rawArgs = writeMatch[1].replace(/;+$/, '').trim();
-      const parts = splitArgs(rawArgs);
-      const pyParts = parts.map(p => convertExpressionToPython(p));
-      if (pyParts.length > 1) {
-        pyLines.push('    '.repeat(indent) + `print(${pyParts.join(', ')}, sep="")`);
-      } else {
-        pyLines.push('    '.repeat(indent) + `print(${pyParts[0] || "''"})`);
+      let rawArgs = writeMatch[1].replace(/;+$/, '').trim();
+      let noNewline = false;
+      if (/\b(?:sin\s+saltar|no_newline)\b/i.test(rawArgs)) {
+        noNewline = true;
+        rawArgs = rawArgs.replace(/\b(?:sin\s+saltar|no_newline)\b/gi, '').trim();
       }
+      if (!rawArgs) {
+        pyLines.push('    '.repeat(indent) + (noNewline ? 'pass' : 'print()'));
+        continue;
+      }
+      const parts = splitArgs(rawArgs).filter(p => p.length > 0);
+      const pyParts = parts.map(p => convertExpressionToPython(p));
+      const endArg = noNewline ? ', end=""' : '';
+      if (pyParts.length > 1) {
+        pyLines.push('    '.repeat(indent) + `print(${pyParts.join(', ')}, sep=""${endArg})`);
+      } else {
+        pyLines.push('    '.repeat(indent) + `print(${pyParts[0] || "''"}${endArg})`);
+      }
+      continue;
+    }
+
+    // Repetir / repeat
+    if (/^(?:Repetir|repeat)\s*;?$/i.test(line)) {
+      pyLines.push('    '.repeat(indent) + 'while True:');
+      indent++;
+      continue;
+    }
+    const untilMatch = line.match(/^(?:Hasta\s+Que|until)\s+(.+?);?$/i);
+    if (untilMatch) {
+      const cond = convertConditionToPython(untilMatch[1]);
+      pyLines.push('    '.repeat(indent) + `if ${cond}:`);
+      pyLines.push('    '.repeat(indent + 1) + 'break');
+      indent = Math.max(0, indent - 1);
       continue;
     }
 
@@ -481,18 +588,47 @@ export function transpileToRust(pseudocode: string): string {
       continue;
     }
 
-    // Escribir: soporta múltiples argumentos y cadenas con comas
-    const writeMatch = line.match(/^(?:Escribir|write)\s+(.+?);?$/i);
+    // Escribir: soporta múltiples argumentos, cadenas con comas y Sin Saltar
+    if (/^(?:Escribir|write|mostrar)\s*;?$/i.test(line)) {
+      rsLines.push('    '.repeat(indent) + 'println!();');
+      continue;
+    }
+    const writeMatch = line.match(/^(?:Escribir|write|mostrar)\s+(.+?);?$/i);
     if (writeMatch) {
-      const rawArgs = writeMatch[1].replace(/;+$/, '').trim();
-      const parts = splitArgs(rawArgs);
+      let rawArgs = writeMatch[1].replace(/;+$/, '').trim();
+      let noNewline = false;
+      if (/\b(?:sin\s+saltar|no_newline)\b/i.test(rawArgs)) {
+        noNewline = true;
+        rawArgs = rawArgs.replace(/\b(?:sin\s+saltar|no_newline)\b/gi, '').trim();
+      }
+      if (!rawArgs) {
+        rsLines.push('    '.repeat(indent) + (noNewline ? '' : 'println!();'));
+        continue;
+      }
+      const parts = splitArgs(rawArgs).filter(p => p.length > 0);
       const rsParts = parts.map(p => convertExpressionToRust(p));
+      const printMacro = noNewline ? 'print!' : 'println!';
       if (rsParts.length === 1) {
-        rsLines.push('    '.repeat(indent) + `println!("{}", ${rsParts[0]});`);
+        rsLines.push('    '.repeat(indent) + `${printMacro}("{}", ${rsParts[0]});`);
       } else {
         const fmt = rsParts.map(() => '{}').join('');
-        rsLines.push('    '.repeat(indent) + `println!("${fmt}", ${rsParts.join(', ')});`);
+        rsLines.push('    '.repeat(indent) + `${printMacro}("${fmt}", ${rsParts.join(', ')});`);
       }
+      continue;
+    }
+
+    // Repetir / repeat
+    if (/^(?:Repetir|repeat)\s*;?$/i.test(line)) {
+      rsLines.push('    '.repeat(indent) + 'loop {');
+      indent++;
+      continue;
+    }
+    const untilMatch = line.match(/^(?:Hasta\s+Que|until)\s+(.+?);?$/i);
+    if (untilMatch) {
+      const cond = convertConditionToRust(untilMatch[1]);
+      rsLines.push('    '.repeat(indent) + `if ${cond} { break; }`);
+      indent = Math.max(1, indent - 1);
+      rsLines.push('    '.repeat(indent) + '}');
       continue;
     }
 

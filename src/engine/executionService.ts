@@ -10,11 +10,19 @@ export interface ValidationProgress {
 
 export interface ValidationResult {
   passed: boolean;
+  cancelled?: boolean;
   details: ValidationDetail[];
+}
+
+interface ActiveValidationOperation {
+  id: string;
+  cancel: (reason?: string) => void;
+  readonly isSettled: boolean;
 }
 
 let activeWorker: Worker | null = null;
 let currentTaskId = 0;
+let activeOperation: ActiveValidationOperation | null = null;
 
 function getOrCreateWorker(): Worker | null {
   if (typeof window === 'undefined' || typeof Worker === 'undefined') {
@@ -43,9 +51,13 @@ export function terminateWorker(): void {
   }
 }
 
-export function cancelCurrentValidation(): void {
+export function cancelCurrentValidation(reason: string = 'Validación cancelada por el usuario.'): void {
   isFallbackCancelled = true;
-  terminateWorker();
+  if (activeOperation && !activeOperation.isSettled) {
+    activeOperation.cancel(reason);
+  } else {
+    terminateWorker();
+  }
 }
 
 /**
@@ -58,31 +70,89 @@ export async function runExerciseValidation(
   hiddenCases: TestCase[],
   onProgress?: (progress: ValidationProgress) => void
 ): Promise<ValidationResult> {
+  // Cancel any prior incomplete operation
+  if (activeOperation && !activeOperation.isSettled) {
+    activeOperation.cancel('Operación anterior reemplazada.');
+  }
+
   isFallbackCancelled = false;
   const taskId = `task_${++currentTaskId}_${Date.now()}`;
   const worker = getOrCreateWorker();
 
   if (worker) {
-    return new Promise<ValidationResult>((resolve, reject) => {
-      // 12-second watchdog timer to terminate if worker locks completely
-      const timeoutTimer = setTimeout(() => {
+    return new Promise<ValidationResult>((resolve) => {
+      let isSettled = false;
+      let timeoutTimer: any = null;
+
+      const cleanup = () => {
+        if (timeoutTimer) {
+          clearTimeout(timeoutTimer);
+          timeoutTimer = null;
+        }
+        if (worker) {
+          worker.removeEventListener('message', messageHandler);
+          worker.removeEventListener('error', errorHandler);
+        }
+      };
+
+      const settle = (result: ValidationResult) => {
+        if (isSettled) return;
+        isSettled = true;
+        cleanup();
+        if (activeOperation?.id === taskId) {
+          activeOperation = null;
+        }
+        resolve(result);
+      };
+
+      const cancel = (reason: string = 'Validación cancelada por el usuario.') => {
+        if (isSettled) return;
         cleanup();
         terminateWorker();
-        reject(new Error('Tiempo límite de validación excedido (12s). Posible bucle infinito en el código.'));
+        settle({
+          passed: false,
+          cancelled: true,
+          details: [{
+            index: 1,
+            error: reason,
+            passed: false,
+            isAdditional: false
+          }]
+        });
+      };
+
+      activeOperation = {
+        id: taskId,
+        cancel,
+        get isSettled() { return isSettled; }
+      };
+
+      // 12-second watchdog timer to terminate if worker locks completely
+      timeoutTimer = setTimeout(() => {
+        if (isSettled) return;
+        terminateWorker();
+        settle({
+          passed: false,
+          details: [{
+            index: 1,
+            error: 'Tiempo límite de validación excedido (12s). Posible bucle infinito en el código.',
+            passed: false,
+            isAdditional: false
+          }]
+        });
       }, 12000);
 
       const messageHandler = (e: MessageEvent) => {
+        if (isSettled) return;
         const data = e.data;
         if (!data || data.id !== taskId) return;
 
         if (data.type === 'PROGRESS') {
           onProgress?.({ current: data.current, total: data.total });
         } else if (data.type === 'VALIDATE_SUCCESS') {
-          cleanup();
-          resolve({ passed: data.passed, details: data.details });
+          settle({ passed: data.passed, details: data.details });
         } else if (data.type === 'VALIDATE_ERROR') {
-          cleanup();
-          resolve({
+          settle({
             passed: false,
             details: [{ index: 1, error: data.error, passed: false, isAdditional: false }]
           });
@@ -90,18 +160,16 @@ export async function runExerciseValidation(
       };
 
       const errorHandler = (_err: ErrorEvent) => {
+        if (isSettled) return;
         cleanup();
         terminateWorker();
         // Fallback to async in-thread time-sliced execution
-        runAsyncValidationFallback(code, visibleCases, hiddenCases, onProgress)
-          .then(resolve)
-          .catch(reject);
-      };
-
-      const cleanup = () => {
-        clearTimeout(timeoutTimer);
-        worker.removeEventListener('message', messageHandler);
-        worker.removeEventListener('error', errorHandler);
+        runAsyncValidationFallback(code, visibleCases, hiddenCases, taskId, onProgress)
+          .then(res => settle(res))
+          .catch(err => settle({
+            passed: false,
+            details: [{ index: 1, error: err.message || String(err), passed: false, isAdditional: false }]
+          }));
       };
 
       worker.addEventListener('message', messageHandler);
@@ -119,7 +187,53 @@ export async function runExerciseValidation(
   }
 
   // Fallback when Web Worker is unavailable: async time-sliced execution
-  return runAsyncValidationFallback(code, visibleCases, hiddenCases, onProgress);
+  return new Promise<ValidationResult>((resolve) => {
+    let isSettled = false;
+
+    const cancel = (reason: string = 'Validación cancelada por el usuario.') => {
+      if (isSettled) return;
+      isSettled = true;
+      isFallbackCancelled = true;
+      if (activeOperation?.id === taskId) {
+        activeOperation = null;
+      }
+      resolve({
+        passed: false,
+        cancelled: true,
+        details: [{
+          index: 1,
+          error: reason,
+          passed: false,
+          isAdditional: false
+        }]
+      });
+    };
+
+    activeOperation = {
+      id: taskId,
+      cancel,
+      get isSettled() { return isSettled; }
+    };
+
+    runAsyncValidationFallback(code, visibleCases, hiddenCases, taskId, onProgress)
+      .then(res => {
+        if (!isSettled) {
+          isSettled = true;
+          if (activeOperation?.id === taskId) activeOperation = null;
+          resolve(res);
+        }
+      })
+      .catch(err => {
+        if (!isSettled) {
+          isSettled = true;
+          if (activeOperation?.id === taskId) activeOperation = null;
+          resolve({
+            passed: false,
+            details: [{ index: 1, error: err.message || String(err), passed: false, isAdditional: false }]
+          });
+        }
+      });
+  });
 }
 
 /**
@@ -130,6 +244,7 @@ async function runAsyncValidationFallback(
   code: string,
   visibleCases: TestCase[],
   hiddenCases: TestCase[],
+  taskId: string,
   onProgress?: (progress: ValidationProgress) => void
 ): Promise<ValidationResult> {
   try {
@@ -142,10 +257,13 @@ async function runAsyncValidationFallback(
     let allPassed = true;
     const details: ValidationDetail[] = [];
 
+    const isCancelled = () => isFallbackCancelled || !activeOperation || activeOperation.id !== taskId || activeOperation.isSettled;
+
     for (let i = 0; i < allCases.length; i++) {
-      if (isFallbackCancelled) {
+      if (isCancelled()) {
         return {
           passed: false,
+          cancelled: true,
           details: [{
             index: i + 1,
             error: 'Validación detenida por el usuario.',
@@ -167,12 +285,13 @@ async function runAsyncValidationFallback(
         false,
         2500,
         16,
-        () => isFallbackCancelled
+        isCancelled
       );
 
-      if (isFallbackCancelled) {
+      if (isCancelled()) {
         return {
           passed: false,
+          cancelled: true,
           details: [{
             index: i + 1,
             error: 'Validación detenida por el usuario.',

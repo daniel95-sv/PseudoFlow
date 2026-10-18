@@ -33,7 +33,7 @@ import {
 
 import { Lexer } from '../engine/lexer';
 import { Parser } from '../engine/parser';
-import { Interpreter } from '../engine/interpreter';
+import { InteractiveSession } from '../engine/interactiveExecutionService';
 import { generateFlowchart } from '../engine/flowchart';
 import { generateStructogram, StructogramBlock } from '../engine/structogram';
 import { TraceStep } from '../engine/types';
@@ -186,9 +186,9 @@ export const IDEView: React.FC<IDEViewProps> = ({
   }, [code, lang]);
 
 
-  // Execution state
-  const [interpreter, setInterpreter] = useState<Interpreter | null>(null);
-  const [stepGenerator, setStepGenerator] = useState<Generator<TraceStep, void, unknown> | null>(null);
+  // Execution state & isolated interactive session
+  const sessionRef = useRef<InteractiveSession | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [speedMs, setSpeedMs] = useState<number>(350);
   const [traceSteps, setTraceSteps] = useState<TraceStep[]>([]);
@@ -196,6 +196,15 @@ export const IDEView: React.FC<IDEViewProps> = ({
   const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
   const [interactiveInput, setInteractiveInput] = useState<string>('');
   const [isWaitingInput, setIsWaitingInput] = useState<boolean>(false);
+
+  // Initialize and tear down interactive session worker
+  useEffect(() => {
+    const session = new InteractiveSession();
+    sessionRef.current = session;
+    return () => {
+      session.terminate();
+    };
+  }, []);
 
   // Sidebar and surface states
   const [activeSidebarTab, setActiveSidebarTab] = useState<'track' | 'specs' | 'examples'>('track');
@@ -231,19 +240,15 @@ export const IDEView: React.FC<IDEViewProps> = ({
     setTestResults(null);
     setRuntimeError(null);
 
-    try {
-      const codeToRun = targetCode !== undefined ? targetCode : code;
-      const lexer = new Lexer(codeToRun);
-      const tokens = lexer.tokenize();
-      const parser = new Parser(tokens);
-      const parsedAst = parser.parse();
-
-      const newInterp = new Interpreter(parsedAst, { isInteractive: true });
-      setInterpreter(newInterp);
-      setStepGenerator(newInterp.generateSteps());
-    } catch {
-      setInterpreter(null);
-      setStepGenerator(null);
+    const codeToRun = targetCode !== undefined ? targetCode : code;
+    if (sessionRef.current) {
+      sessionRef.current.reset(codeToRun).then(res => {
+        if (res.success) {
+          setCurrentSessionId(res.sessionId);
+        } else {
+          setCurrentSessionId(null);
+        }
+      });
     }
   };
 
@@ -261,33 +266,38 @@ export const IDEView: React.FC<IDEViewProps> = ({
     onToggleLang();
   };
 
-  const handleStepForward = () => {
-    let gen = stepGenerator;
-    let interp = interpreter;
+  const handleStepForward = async () => {
+    const session = sessionRef.current;
+    if (!session) return;
+    let sId = currentSessionId;
 
-    if (!interp || !gen) {
+    if (!sId) {
       try {
-        const lexer = new Lexer(code);
-        const tokens = lexer.tokenize();
-        const parser = new Parser(tokens);
-        const parsedAst = parser.parse();
-        interp = new Interpreter(parsedAst, { isInteractive: true });
-        gen = interp.generateSteps();
-        setInterpreter(interp);
-        setStepGenerator(gen);
+        const startRes = await session.start(code);
+        if (!startRes.success) {
+          if (startRes.error) setRuntimeError(startRes.error);
+          return;
+        }
+        sId = startRes.sessionId;
+        setCurrentSessionId(sId);
         setRuntimeError(null);
       } catch {
         return;
       }
     }
 
-    const res = gen.next();
+    const res = await session.step(sId);
+
+    // Discard obsolete session events (e.g. user reset or changed exercise while stepping)
+    if (res.sessionId !== session.getSessionId()) {
+      return;
+    }
 
     // Check if runtime error occurred in execution
-    if (interp.error) {
-      setRuntimeError(interp.error);
+    if (res.error) {
+      setRuntimeError(res.error);
       setConsoleLogs(prev => {
-        const next = [...prev, `[${isEs ? 'Error de ejecución' : 'Runtime error'}]: ${interp.error}`];
+        const next = [...prev, `[${isEs ? 'Error de ejecución' : 'Runtime error'}]: ${res.error}`];
         return next.length > MAX_UI_CONSOLE_LOGS ? next.slice(next.length - MAX_UI_CONSOLE_LOGS) : next;
       });
       setIsPlaying(false);
@@ -296,31 +306,33 @@ export const IDEView: React.FC<IDEViewProps> = ({
       return;
     }
 
-    if (interp.isWaitingForInput) {
+    if (res.isWaitingForInput) {
       setIsWaitingInput(true);
       setIsPlaying(false);
       setIsConsoleCollapsedMobile(false);
     }
 
-    if (res.done || interp.isFinished) {
+    if (res.done || res.isFinished) {
       setIsPlaying(false);
       setActiveLine(undefined);
       return;
     }
 
-    const step = res.value as TraceStep;
-    setActiveLine(step.lineNumber);
-    setTraceSteps(prev => {
-      const next = [...prev, step];
-      return next.length > MAX_UI_TRACE_STEPS ? next.slice(next.length - MAX_UI_TRACE_STEPS) : next;
-    });
-    setCurrentStepIdx(prev => prev + 1);
-
-    if (step.outputLog) {
-      setConsoleLogs(prev => {
-        const next = [...prev, step.outputLog!];
-        return next.length > MAX_UI_CONSOLE_LOGS ? next.slice(next.length - MAX_UI_CONSOLE_LOGS) : next;
+    if (res.step) {
+      const step = res.step;
+      setActiveLine(step.lineNumber);
+      setTraceSteps(prev => {
+        const next = [...prev, step];
+        return next.length > MAX_UI_TRACE_STEPS ? next.slice(next.length - MAX_UI_TRACE_STEPS) : next;
       });
+      setCurrentStepIdx(prev => prev + 1);
+
+      if (step.outputLog) {
+        setConsoleLogs(prev => {
+          const next = [...prev, step.outputLog!];
+          return next.length > MAX_UI_CONSOLE_LOGS ? next.slice(next.length - MAX_UI_CONSOLE_LOGS) : next;
+        });
+      }
     }
   };
 
@@ -330,7 +342,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
       return;
     }
 
-    if (!interpreter || !stepGenerator) {
+    if (!currentSessionId) {
       resetExecution();
     }
     setIsPlaying(true);
@@ -344,7 +356,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
   // Step-by-step execution loop
   useEffect(() => {
     let timer: any = null;
-    if (isPlaying && stepGenerator && !isWaitingInput) {
+    if (isPlaying && currentSessionId && !isWaitingInput) {
       timer = setTimeout(() => {
         stepForwardRef.current();
       }, speedMs);
@@ -352,18 +364,20 @@ export const IDEView: React.FC<IDEViewProps> = ({
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [isPlaying, stepGenerator, isWaitingInput, speedMs]);
+  }, [isPlaying, currentSessionId, isWaitingInput, speedMs]);
 
-  const handleSendInput = (e: React.FormEvent) => {
+  const handleSendInput = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!interpreter || !isWaitingInput) return;
-    interpreter.provideInput(interactiveInput);
+    const session = sessionRef.current;
+    const sId = currentSessionId;
+    if (!session || !sId || !isWaitingInput) return;
+    await session.provideInput(sId, interactiveInput);
+    setIsWaitingInput(false);
     setConsoleLogs(prev => {
       const next = [...prev, `> ${interactiveInput === '' ? '""' : interactiveInput}`];
       return next.length > MAX_UI_CONSOLE_LOGS ? next.slice(next.length - MAX_UI_CONSOLE_LOGS) : next;
     });
     setInteractiveInput('');
-    setIsWaitingInput(false);
     if (isPlaying) {
       setTimeout(handleStepForward, speedMs);
     }
@@ -900,8 +914,8 @@ endAlgorithm
             setIsPlaying(false);
             setIsWaitingInput(false);
             setActiveLine(undefined);
-            setInterpreter(null);
-            setStepGenerator(null);
+            sessionRef.current?.stop();
+            setCurrentSessionId(null);
             setRuntimeError(null);
             safeStorageSet('pseudoflow-draft-code', newCode);
           }}

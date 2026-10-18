@@ -820,15 +820,23 @@ export class Parser {
   }
 
   private parseUnary(): ExpressionNode {
-    if (this.match('NOT')) {
-      const arg = this.parseUnary();
-      return { type: 'UnaryOp', operator: 'NO', argument: arg };
+    this.exprDepth++;
+    if (this.exprDepth > Parser.MAX_EXPR_DEPTH) {
+      throw new Error(`Profundidad máxima de expresión superada (${Parser.MAX_EXPR_DEPTH}). Expresión demasiado anidada.`);
     }
-    if (this.match('MINUS')) {
-      const arg = this.parseUnary();
-      return { type: 'UnaryOp', operator: '-', argument: arg };
+    try {
+      if (this.match('NOT')) {
+        const arg = this.parseUnary();
+        return { type: 'UnaryOp', operator: 'NO', argument: arg };
+      }
+      if (this.match('MINUS')) {
+        const arg = this.parseUnary();
+        return { type: 'UnaryOp', operator: '-', argument: arg };
+      }
+      return this.parsePower();
+    } finally {
+      this.exprDepth--;
     }
-    return this.parsePower();
   }
 
   private parsePower(): ExpressionNode {

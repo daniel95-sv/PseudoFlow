@@ -28,6 +28,9 @@ export interface InterpreterOptions {
   maxSystemTotalArrayElements?: number;
   maxExecutionTimeMs?: number;
   isInteractive?: boolean;
+  maxOutputLines?: number;
+  maxOutputChars?: number;
+  maxLineLength?: number;
 }
 
 export class Interpreter {
@@ -51,6 +54,8 @@ export class Interpreter {
   public static readonly MAX_ARRAY_TOTAL_ELEMENTS = 100_000;
   public static readonly MAX_SYSTEM_TOTAL_ARRAY_ELEMENTS = 250_000;
   public static readonly MAX_OUTPUT_LINES = 2_000;
+  public static readonly MAX_OUTPUT_CHARS = 100_000;
+  public static readonly MAX_LINE_LENGTH = 4_000;
   public static readonly MAX_TRACE_STEPS_STORED = 2_000;
   public static readonly MAX_ARRAY_FORMAT_ELEMENTS = 8;
   public static readonly DEFAULT_TIMEOUT_MS = 5_000;
@@ -61,6 +66,11 @@ export class Interpreter {
   private maxSystemTotalArrayElements: number = Interpreter.MAX_SYSTEM_TOTAL_ARRAY_ELEMENTS;
   private maxExecutionTimeMs: number = Interpreter.DEFAULT_TIMEOUT_MS;
   public isInteractive: boolean = false;
+  private maxOutputLines: number = Interpreter.MAX_OUTPUT_LINES;
+  private maxOutputChars: number = Interpreter.MAX_OUTPUT_CHARS;
+  private maxLineLength: number = Interpreter.MAX_LINE_LENGTH;
+  private totalOutputChars: number = 0;
+  private outputLimitReached: boolean = false;
   private totalAllocatedArrayElements: number = 0;
   private startTime: number = 0;
   private lastOutputHadNoNewline: boolean = false;
@@ -82,6 +92,9 @@ export class Interpreter {
     if (options?.maxCallStackDepth !== undefined) this.maxCallStackDepth = options.maxCallStackDepth;
     if (options?.maxArrayElements !== undefined) this.maxArrayElements = options.maxArrayElements;
     if (options?.maxSystemTotalArrayElements !== undefined) this.maxSystemTotalArrayElements = options.maxSystemTotalArrayElements;
+    if (options?.maxOutputLines !== undefined) this.maxOutputLines = options.maxOutputLines;
+    if (options?.maxOutputChars !== undefined) this.maxOutputChars = options.maxOutputChars;
+    if (options?.maxLineLength !== undefined) this.maxLineLength = options.maxLineLength;
     if (options?.maxExecutionTimeMs !== undefined) {
       this.maxExecutionTimeMs = options.maxExecutionTimeMs;
       if (options?.maxSteps === undefined) {
@@ -115,6 +128,8 @@ export class Interpreter {
     this.objectCounter = 0;
     this.inputs = [];
     this.outputs = [];
+    this.totalOutputChars = 0;
+    this.outputLimitReached = false;
     this.steps = [];
     this.stepNumber = 0;
     this.totalAllocatedArrayElements = 0;
@@ -252,6 +267,85 @@ export class Interpreter {
 
   public getVariable(name: string): any {
     return this.resolveVariable(name);
+  }
+
+  private truncateSafeUnicode(str: string, maxLen: number): string {
+    if (str.length <= maxLen) return str;
+    let cut = maxLen;
+    if (cut > 0) {
+      const code = str.charCodeAt(cut - 1);
+      if (code >= 0xd800 && code <= 0xdbff) {
+        cut--;
+      }
+    }
+    return str.slice(0, cut);
+  }
+
+  private appendOutput(text: string, noNewline: boolean): boolean {
+    if (this.outputLimitReached) {
+      return true;
+    }
+
+    const isContinuation = this.lastOutputHadNoNewline && this.outputs.length > 0;
+
+    // Line count budget check (only when starting a new line)
+    if (!isContinuation && this.outputs.length >= this.maxOutputLines) {
+      this.outputs.push(`[Salida truncada: se alcanzó el límite de ${this.maxOutputLines} líneas de salida]`);
+      this.outputLimitReached = true;
+      this.isFinished = true;
+      return true;
+    }
+
+    const remainingTotalChars = this.maxOutputChars - this.totalOutputChars;
+    if (remainingTotalChars <= 0) {
+      this.outputs.push(`[Salida truncada: se superó el presupuesto total de ${this.maxOutputChars} caracteres]`);
+      this.outputLimitReached = true;
+      this.isFinished = true;
+      return true;
+    }
+
+    if (isContinuation) {
+      const currentLine = this.outputs[this.outputs.length - 1];
+      const remainingLineChars = this.maxLineLength - currentLine.length;
+      if (remainingLineChars <= 0) {
+        this.outputs.push(`[Salida truncada: se alcanzó el límite de ${this.maxLineLength} caracteres por línea]`);
+        this.outputLimitReached = true;
+        this.isFinished = true;
+        return true;
+      }
+
+      const budget = Math.min(remainingTotalChars, remainingLineChars);
+      if (text.length > budget) {
+        const truncated = this.truncateSafeUnicode(text, budget);
+        this.outputs[this.outputs.length - 1] += truncated;
+        this.totalOutputChars += truncated.length;
+        this.outputs.push(`[Salida truncada: se superó el límite de caracteres]`);
+        this.outputLimitReached = true;
+        this.isFinished = true;
+        return true;
+      } else {
+        this.outputs[this.outputs.length - 1] += text;
+        this.totalOutputChars += text.length;
+        this.lastOutputHadNoNewline = noNewline;
+        return false;
+      }
+    } else {
+      const budget = Math.min(remainingTotalChars, this.maxLineLength);
+      if (text.length > budget) {
+        const truncated = this.truncateSafeUnicode(text, budget);
+        this.outputs.push(truncated);
+        this.totalOutputChars += truncated.length;
+        this.outputs.push(`[Salida truncada: se superó el límite de caracteres]`);
+        this.outputLimitReached = true;
+        this.isFinished = true;
+        return true;
+      } else {
+        this.outputs.push(text);
+        this.totalOutputChars += text.length;
+        this.lastOutputHadNoNewline = noNewline;
+        return false;
+      }
+    }
   }
 
   private consumeStep(line?: number): void {
@@ -455,33 +549,41 @@ export class Interpreter {
 
       case 'Write': {
         const write = stmt as WriteNode;
-        const lineParts = write.expressions.map(e => {
+        const remainingBudget = Math.max(0, this.maxOutputChars - this.totalOutputChars);
+        const lineParts: string[] = [];
+        let accumulatedLen = 0;
+
+        for (const e of write.expressions) {
+          if (accumulatedLen > this.maxLineLength || accumulatedLen > remainingBudget) {
+            break;
+          }
           const val = this.evalExpression(e);
           const isReal = this.isRealExpression(e);
-          return this.formatValueForPrint(val, isReal);
-        });
+          const part = this.formatValueForPrint(val, isReal);
+          lineParts.push(part);
+          accumulatedLen += part.length;
+        }
         const fullOutput = lineParts.join('');
 
-        if (this.lastOutputHadNoNewline && this.outputs.length > 0) {
-          this.outputs[this.outputs.length - 1] += fullOutput;
-        } else {
-          if (this.outputs.length < Interpreter.MAX_OUTPUT_LINES) {
-            this.outputs.push(fullOutput);
-          } else if (this.outputs.length === Interpreter.MAX_OUTPUT_LINES) {
-            this.outputs.push(`[Salida truncada: se alcanzó el límite de ${Interpreter.MAX_OUTPUT_LINES} líneas de salida]`);
-          }
-        }
-        this.lastOutputHadNoNewline = Boolean(write.noNewline);
+        const limitHit = this.appendOutput(fullOutput, Boolean(write.noNewline));
+
+        const previewOutput = fullOutput.length > 300
+          ? fullOutput.slice(0, 297) + '...'
+          : fullOutput;
 
         const step: TraceStep = {
           stepNumber: this.stepNumber,
           lineNumber: write.line,
-          action: `Escribir ${fullOutput}`,
+          action: `Escribir ${previewOutput}`,
           variables: this.getVariablesSnapshot(),
-          outputLog: fullOutput
+          outputLog: previewOutput
         };
         this.recordStep(step);
         yield step;
+
+        if (limitHit) {
+          return true;
+        }
         break;
       }
 
@@ -1143,7 +1245,12 @@ export class Interpreter {
       }
       return String(rounded);
     }
-    return String(val);
+    const str = String(val);
+    const maxAllowed = Math.max(this.maxLineLength, this.maxOutputChars);
+    if (str.length > maxAllowed + 50) {
+      return str.slice(0, maxAllowed + 50);
+    }
+    return str;
   }
 
   private isRealExpression(expr: ExpressionNode): boolean {
