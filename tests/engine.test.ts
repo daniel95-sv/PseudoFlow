@@ -70,6 +70,41 @@ describe('Transpiler Operator Integrity (Auditoría P1/P2)', () => {
     const rust = transpileToRust(code);
     expect(rust).toContain('println!("{} {} {}",');
   });
+
+  it('transpiles Leer to type-aware input functions in Python based on declarations (Auditoría P1)', () => {
+    const code = `
+      Algoritmo TestLectura
+        Definir nombre Como Cadena;
+        Definir edad Como Entero;
+        Definir altura Como Real;
+        Leer nombre;
+        Leer edad;
+        Leer altura;
+      FinAlgoritmo
+    `;
+    const py = transpileToPython(code);
+    expect(py).toContain('nombre = input()');
+    expect(py).toContain('edad = int(input())');
+    expect(py).toContain('altura = float(input())');
+  });
+
+  it('transpiles multidimensional arrays (3D+) to nested list comprehensions in Python (Auditoría P1)', () => {
+    const code = 'Dimension matriz3D[2, 3, 4]';
+    const py = transpileToPython(code);
+    expect(py).toContain('matriz3D = [[[0] * 4 for _ in range(3)] for _ in range(2)]');
+  });
+
+  it('transpiles Leer with stdin line reading and type parsing in Rust (Auditoría P1)', () => {
+    const code = `
+      Algoritmo TestRustLeer
+        Definir edad Como Entero;
+        Leer edad;
+      FinAlgoritmo
+    `;
+    const rust = transpileToRust(code);
+    expect(rust).toContain('std::io::stdin().read_line(&mut _buf)');
+    expect(rust).toContain('_buf.trim().parse().unwrap_or_default()');
+  });
 });
 
 describe('Interpreter Resource Limits & Isolation (Auditoría P1)', () => {
@@ -88,7 +123,7 @@ describe('Interpreter Resource Limits & Isolation (Auditoría P1)', () => {
     const ast = parser.parse();
     const interp = new Interpreter(ast);
 
-    expect(() => interp.runAll([], true)).toThrowError(/Límite de iteraciones alcanzado.*bucle infinito/i);
+    expect(() => interp.runAll([], true)).toThrowError(/Límite de (?:iteraciones|ejecución) alcanzado.*bucle infinito/i);
   });
 
   it('throws descriptive error on division by zero', () => {
@@ -241,6 +276,45 @@ describe('Operator Precedence & Associativity Conformance (Auditoría P2)', () =
     expect(interp.getVariable('res')).toBe(512);
   });
 
+  it('evaluates unary minus with exponentiation according to mathematical conventions (-2^2 = -4)', () => {
+    const code = `
+      Algoritmo PotenciaUnario
+        Definir res Como Real;
+        res <- -2 ^ 2;
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll();
+    expect(interp.getVariable('res')).toBe(-4);
+  });
+
+  it('evaluates parenthesized negative base with exponentiation ((-2)^2 = 4)', () => {
+    const code = `
+      Algoritmo PotenciaParentesis
+        Definir res Como Real;
+        res <- (-2) ^ 2;
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll();
+    expect(interp.getVariable('res')).toBe(4);
+  });
+
+  it('evaluates negative exponents correctly (2^-2 = 0.25)', () => {
+    const code = `
+      Algoritmo PotenciaNegativa
+        Definir res Como Real;
+        res <- 2 ^ -2;
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll();
+    expect(interp.getVariable('res')).toBe(0.25);
+  });
+
   it('respects arithmetic precedence rules and parentheses', () => {
     const code = `
       Algoritmo Precedencia
@@ -305,7 +379,7 @@ describe('Operator Precedence & Associativity Conformance (Auditoría P2)', () =
   });
 });
 
-describe('Corpus of Invalid Inputs & Edge Cases (Auditoría Fase 1)', () => {
+describe('Corpus of Invalid Inputs & Edge Cases (Auditoría Fase 1 & 2)', () => {
   it('rejects array dimensions equal to 0 or negative', () => {
     const codeZero = `
       Algoritmo DimCero
@@ -373,6 +447,89 @@ describe('Corpus of Invalid Inputs & Edge Cases (Auditoría Fase 1)', () => {
     const ast = new Parser(new Lexer(code).tokenize()).parse();
     const interp = new Interpreter(ast);
     expect(() => interp.runAll([], true)).toThrowError(/Profundidad máxima de pila de llamadas superada/);
+  });
+
+  it('terminates an infinite While loop with an empty body (Auditoría P1)', () => {
+    const code = `
+      Algoritmo BucleVacio
+        Mientras Verdadero Hacer
+        FinMientras
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast, { maxSteps: 500 });
+    expect(() => interp.runAll([], true)).toThrowError(/Límite de ejecución alcanzado/);
+  });
+
+  it('terminates an infinite Repeat loop with an empty body (Auditoría P1)', () => {
+    const code = `
+      Algoritmo RepetirVacio
+        Repetir
+        Hasta Que Falso
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast, { maxSteps: 500 });
+    expect(() => interp.runAll([], true)).toThrowError(/Límite de ejecución alcanzado/);
+  });
+
+  it('enforces wall-clock execution timeout in runAll (Auditoría P1)', () => {
+    const code = `
+      Algoritmo BucleLargo
+        Definir c Como Entero;
+        c <- 0;
+        Mientras Verdadero Hacer
+          c <- c + 1;
+        FinMientras
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    expect(() => interp.runAll([], true, 40)).toThrowError(/Tiempo (?:máximo|límite) de ejecución (?:excedido|superado)|Límite de ejecución alcanzado/);
+  });
+
+  it('truncates large array formatting in trace snapshots to protect CPU & memory (Auditoría P1)', () => {
+    const code = `
+      Algoritmo ArregloGrande
+        Dimension arr[30];
+        arr[0] <- 123;
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    const res = interp.runAll();
+    const lastStep = res.steps[res.steps.length - 1];
+    expect(lastStep.variables['arr']).toContain('más');
+    expect(lastStep.variables['arr']).toContain('30 elem');
+  });
+
+  it('supports reading empty string input into variable without error (Auditoría P2)', () => {
+    const code = `
+      Algoritmo LeerVacio
+        Definir s Como Cadena;
+        Leer s;
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll(['']);
+    expect(interp.getVariable('s')).toBe('');
+  });
+
+  it('caps printed output lines to prevent browser memory exhaustion (Auditoría P1)', () => {
+    const code = `
+      Algoritmo MuchasSalidas
+        Definir i Como Entero;
+        Para i <- 1 Hasta 2100 Hacer
+          Escribir "Línea ", i;
+        FinPara
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    const res = interp.runAll();
+    expect(res.outputs.length).toBeLessThanOrEqual(2001);
+    expect(res.outputs[res.outputs.length - 1]).toContain('Salida truncada');
   });
 });
 

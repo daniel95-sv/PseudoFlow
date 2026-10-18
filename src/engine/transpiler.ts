@@ -59,9 +59,19 @@ function convertConditionToRust(cond: string): string {
   return res.trim();
 }
 
+function generatePythonNestedList(dims: string[]): string {
+  if (dims.length === 1) return `[0] * ${dims[0]}`;
+  let res = `[0] * ${dims[dims.length - 1]}`;
+  for (let i = dims.length - 2; i >= 0; i--) {
+    res = `[${res} for _ in range(${dims[i]})]`;
+  }
+  return res;
+}
+
 export function transpileToPython(pseudocode: string): string {
   const lines = pseudocode.split('\n');
   const pyLines: string[] = [];
+  const varTypes = new Map<string, string>();
   let indent = 0;
 
   for (const raw of lines) {
@@ -98,23 +108,24 @@ export function transpileToPython(pseudocode: string): string {
 
     // Definir / define (declare)
     if (/^(?:Definir|define)\s+/i.test(line)) {
-      const m = line.match(/^(?:Definir|define)\s+([a-zA-Z0-9_]+)\s+(?:Como|as)\s+([a-zA-Z0-9_]+)/i);
+      const m = line.match(/^(?:Definir|define)\s+(.+?)\s+(?:Como|as)\s+([a-zA-Z0-9_]+)/i);
       if (m) {
+        const rawVars = m[1].split(',').map(s => s.trim());
+        const dataType = m[2].toLowerCase();
+        for (const v of rawVars) {
+          varTypes.set(v.toLowerCase(), dataType);
+        }
         pyLines.push('    '.repeat(indent) + `# ${m[1]}: ${m[2]}`);
       }
       continue;
     }
 
-    // Dimension -> creación de lista
+    // Dimension -> creación de lista multidimensional
     const dimMatch = line.match(/^(?:Dimension|dimension)\s+([a-zA-Z0-9_]+)\[([^\]]+)\]/i);
     if (dimMatch) {
       const name = dimMatch[1];
       const dims = dimMatch[2].split(',').map(s => s.trim());
-      if (dims.length === 1) {
-        pyLines.push('    '.repeat(indent) + `${name} = [0] * ${dims[0]}`);
-      } else if (dims.length === 2) {
-        pyLines.push('    '.repeat(indent) + `${name} = [[0] * ${dims[1]} for _ in range(${dims[0]})]`);
-      }
+      pyLines.push('    '.repeat(indent) + `${name} = ${generatePythonNestedList(dims)}`);
       continue;
     }
 
@@ -126,10 +137,22 @@ export function transpileToPython(pseudocode: string): string {
       continue;
     }
 
-    // Leer / read
-    const readMatch = line.match(/^(?:Leer|read)\s+([a-zA-Z0-9_]+);?$/i);
+    // Leer / read (sensible al tipo de dato declarado)
+    const readMatch = line.match(/^(?:Leer|read)\s+(.+?);?$/i);
     if (readMatch) {
-      pyLines.push('    '.repeat(indent) + `${readMatch[1]} = int(input())`);
+      const targets = readMatch[1].replace(/;+$/, '').split(',').map(s => s.trim());
+      for (const target of targets) {
+        const t = varTypes.get(target.toLowerCase());
+        if (t === 'cadena' || t === 'texto' || t === 'caracter') {
+          pyLines.push('    '.repeat(indent) + `${target} = input()`);
+        } else if (t === 'real') {
+          pyLines.push('    '.repeat(indent) + `${target} = float(input())`);
+        } else if (t === 'logico') {
+          pyLines.push('    '.repeat(indent) + `${target} = input().strip().lower() in ('verdadero', 'true', '1')`);
+        } else {
+          pyLines.push('    '.repeat(indent) + `${target} = int(input())`);
+        }
+      }
       continue;
     }
 
@@ -199,6 +222,7 @@ export function transpileToPython(pseudocode: string): string {
 export function transpileToRust(pseudocode: string): string {
   const lines = pseudocode.split('\n');
   const rsLines: string[] = ['fn main() {'];
+  const varTypes = new Map<string, string>();
   let indent = 1;
 
   for (const raw of lines) {
@@ -226,16 +250,59 @@ export function transpileToRust(pseudocode: string): string {
     }
 
     // Declaraciones
-    const defMatch = line.match(/^(?:Definir|define)\s+([a-zA-Z0-9_]+)\s+(?:Como|as)\s+([a-zA-Z0-9_]+)/i);
+    const defMatch = line.match(/^(?:Definir|define)\s+(.+?)\s+(?:Como|as)\s+([a-zA-Z0-9_]+)/i);
     if (defMatch) {
       const typeMap: Record<string, string> = {
         'entero': 'i64',
         'real': 'f64',
         'cadena': 'String',
+        'texto': 'String',
+        'caracter': 'char',
         'logico': 'bool'
       };
+      const rawVars = defMatch[1].split(',').map(s => s.trim());
       const t = typeMap[defMatch[2].toLowerCase()] || 'i64';
-      rsLines.push('    '.repeat(indent) + `let mut ${defMatch[1]}: ${t} = Default::default();`);
+      for (const v of rawVars) {
+        varTypes.set(v.toLowerCase(), t);
+        rsLines.push('    '.repeat(indent) + `let mut ${v}: ${t} = Default::default();`);
+      }
+      continue;
+    }
+
+    // Dimension
+    const dimMatch = line.match(/^(?:Dimension|dimension)\s+([a-zA-Z0-9_]+)\[([^\]]+)\]/i);
+    if (dimMatch) {
+      const name = dimMatch[1];
+      const dims = dimMatch[2].split(',').map(s => s.trim());
+      if (dims.length === 1) {
+        rsLines.push('    '.repeat(indent) + `let mut ${name} = vec![0i64; (${dims[0]}) as usize];`);
+      } else if (dims.length === 2) {
+        rsLines.push('    '.repeat(indent) + `let mut ${name} = vec![vec![0i64; (${dims[1]}) as usize]; (${dims[0]}) as usize];`);
+      } else {
+        rsLines.push('    '.repeat(indent) + `let mut ${name} = vec![0i64; (${dims.join(' * ')}) as usize]; // ${dims.length}D`);
+      }
+      continue;
+    }
+
+    // Leer
+    const readMatch = line.match(/^(?:Leer|read)\s+(.+?);?$/i);
+    if (readMatch) {
+      const targets = readMatch[1].replace(/;+$/, '').split(',').map(s => s.trim());
+      for (const target of targets) {
+        const t = varTypes.get(target.toLowerCase()) || 'i64';
+        rsLines.push('    '.repeat(indent) + `{`);
+        rsLines.push('    '.repeat(indent + 1) + `let mut _buf = String::new();`);
+        rsLines.push('    '.repeat(indent + 1) + `let _ = std::io::stdin().read_line(&mut _buf);`);
+        if (t === 'String') {
+          rsLines.push('    '.repeat(indent + 1) + `${target} = _buf.trim_end().to_string();`);
+        } else if (t === 'bool') {
+          rsLines.push('    '.repeat(indent + 1) + `let _clean = _buf.trim().to_lowercase();`);
+          rsLines.push('    '.repeat(indent + 1) + `${target} = _clean == "true" || _clean == "verdadero" || _clean == "1";`);
+        } else {
+          rsLines.push('    '.repeat(indent + 1) + `${target} = _buf.trim().parse().unwrap_or_default();`);
+        }
+        rsLines.push('    '.repeat(indent) + `}`);
+      }
       continue;
     }
 

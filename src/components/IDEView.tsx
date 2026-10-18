@@ -19,7 +19,8 @@ import {
   Download,
   Upload,
   AlertCircle,
-  Trash2
+  Trash2,
+  BookOpen
 } from 'lucide-react';
 
 import { Lexer } from '../engine/lexer';
@@ -55,6 +56,31 @@ const DEFAULT_CODE = `Proceso DemostracionGuiada
 FinProceso
 `;
 
+// Safe localStorage wrappers to prevent crashes if storage is blocked or full
+function safeStorageGet(key: string, fallback: string): string {
+  try {
+    return localStorage.getItem(key) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function safeStorageSet(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Graceful fallback when storage is restricted
+  }
+}
+
+function safeStorageRemove(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Graceful fallback
+  }
+}
+
 interface IDEViewProps {
   onBackToHome: () => void;
   theme: 'light' | 'dark';
@@ -73,9 +99,9 @@ export const IDEView: React.FC<IDEViewProps> = ({
   const isEs = lang === 'es';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Code state with localStorage draft support
+  // Code state with resilient localStorage draft support
   const [code, setCode] = useState<string>(() => {
-    return localStorage.getItem('pseudoflow-draft-code') || DEFAULT_CODE;
+    return safeStorageGet('pseudoflow-draft-code', DEFAULT_CODE);
   });
   const [activeLine, setActiveLine] = useState<number | undefined>(undefined);
 
@@ -120,6 +146,9 @@ export const IDEView: React.FC<IDEViewProps> = ({
       setSyntaxError(null);
     } catch (e: any) {
       setSyntaxError(e.message || String(e));
+      setAst(null);
+      setFlowchartData(null);
+      setStructogramBlocks([]);
     }
   }, [code]);
 
@@ -153,6 +182,9 @@ export const IDEView: React.FC<IDEViewProps> = ({
       setStepGenerator(newInterp.generateSteps());
     } catch (e: any) {
       setSyntaxError(e.message || String(e));
+      setAst(null);
+      setFlowchartData(null);
+      setStructogramBlocks([]);
       setInterpreter(null);
       setStepGenerator(null);
     }
@@ -244,9 +276,9 @@ export const IDEView: React.FC<IDEViewProps> = ({
 
   const handleSendInput = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!interpreter || !interactiveInput.trim()) return;
+    if (!interpreter || !isWaitingInput) return;
     interpreter.provideInput(interactiveInput);
-    setConsoleLogs(prev => [...prev, `> ${interactiveInput}`]);
+    setConsoleLogs(prev => [...prev, `> ${interactiveInput === '' ? '""' : interactiveInput}`]);
     setInteractiveInput('');
     setIsWaitingInput(false);
     if (isPlaying) {
@@ -310,10 +342,31 @@ export const IDEView: React.FC<IDEViewProps> = ({
   const handleSelectExercise = (ex: any) => {
     setSelectedExercise(ex);
     setTestResults(null);
-    const newCode = ex.referenceSolution_es || DEFAULT_CODE;
-    setCode(newCode);
-    resetExecution(newCode);
-    localStorage.setItem('pseudoflow-draft-code', newCode);
+    const safeTitle = (isEs ? ex.title_es : ex.title_en || ex.title_es).replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ_]/g, '_');
+    const starterCode = `Algoritmo Reto_${safeTitle}
+    // Módulo: ${ex.module} - ${isEs ? ex.title_es : (ex.title_en || ex.title_es)}
+    // Reto: ${isEs ? (ex.summary_es || '').split('\n')[0] : ((ex.summary_en || ex.summary_es || '').split('\n')[0])}
+
+    // Escribe tu algoritmo a continuación:
+
+FinAlgoritmo
+`;
+    setCode(starterCode);
+    resetExecution(starterCode);
+    safeStorageSet('pseudoflow-draft-code', starterCode);
+  };
+
+  const handleLoadExerciseSolution = () => {
+    if (!selectedExercise) return;
+    const confirmMsg = isEs
+      ? '¿Deseas cargar la solución de referencia en el editor? Se reemplazará el código actual.'
+      : 'Load reference solution into the editor? Current code will be replaced.';
+    if (window.confirm(confirmMsg)) {
+      const solutionCode = selectedExercise.referenceSolution_es || DEFAULT_CODE;
+      setCode(solutionCode);
+      resetExecution(solutionCode);
+      safeStorageSet('pseudoflow-draft-code', solutionCode);
+    }
   };
 
   const handleSelectExample = (ex: any) => {
@@ -322,7 +375,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
     const newCode = isEs ? ex.code_es : ex.code_en || ex.code_es;
     setCode(newCode);
     resetExecution(newCode);
-    localStorage.setItem('pseudoflow-draft-code', newCode);
+    safeStorageSet('pseudoflow-draft-code', newCode);
   };
 
   const handleDownloadCode = () => {
@@ -344,7 +397,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
       if (typeof content === 'string') {
         setCode(content);
         resetExecution(content);
-        localStorage.setItem('pseudoflow-draft-code', content);
+        safeStorageSet('pseudoflow-draft-code', content);
       }
     };
     reader.readAsText(file);
@@ -356,7 +409,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
       ? '¿Deseas restablecer el código al ejemplo inicial y borrar el borrador guardado en este navegador?'
       : 'Reset code to default example and clear the draft saved in this browser?';
     if (window.confirm(confirmMsg)) {
-      localStorage.removeItem('pseudoflow-draft-code');
+      safeStorageRemove('pseudoflow-draft-code');
       setSelectedExercise(null);
       setCode(DEFAULT_CODE);
       resetExecution(DEFAULT_CODE);
@@ -652,15 +705,26 @@ export const IDEView: React.FC<IDEViewProps> = ({
 
           {/* Bottom Exercise Statement Box */}
           {selectedExercise && (
-            <div style={{ padding: '0.8rem', borderTop: '1px solid var(--pl-line)', background: 'var(--pl-sunken)', maxHeight: '180px', overflowY: 'auto' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--pl-brand)', marginBottom: '0.3rem' }}>
-                {isEs ? 'Enunciado del reto:' : 'Challenge Statement:'}
+            <div style={{ padding: '0.8rem', borderTop: '1px solid var(--pl-line)', background: 'var(--pl-sunken)', maxHeight: '210px', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--pl-brand)' }}>
+                  {isEs ? 'Enunciado del reto:' : 'Challenge Statement:'}
+                </div>
+                <button
+                  className="pl-btn pl-btn--outline pl-btn--sm"
+                  onClick={handleLoadExerciseSolution}
+                  style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                  title={isEs ? 'Cargar solución de referencia en el editor' : 'Load reference solution into editor'}
+                >
+                  <BookOpen size={12} />
+                  <span>{isEs ? 'Ver solución' : 'View solution'}</span>
+                </button>
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--pl-ink)', lineHeight: 1.4 }}>
                 {isEs ? selectedExercise.statement_es : selectedExercise.statement_en || selectedExercise.statement_es}
               </div>
               <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--pl-ink-2)' }}>
-                {selectedExercise.visibleCases?.length || 0} {isEs ? 'casos visibles' : 'visible cases'} · {selectedExercise.hiddenCases?.length || 0} {isEs ? 'casos adicionales' : 'additional test cases'}
+                {selectedExercise.visibleCases?.length || 0} {isEs ? 'casos formativos' : 'formative cases'} · {selectedExercise.hiddenCases?.length || 0} {isEs ? 'casos adicionales' : 'additional test cases'}
               </div>
             </div>
           )}
@@ -722,7 +786,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
                 setInterpreter(null);
                 setStepGenerator(null);
                 setRuntimeError(null);
-                localStorage.setItem('pseudoflow-draft-code', newCode);
+                safeStorageSet('pseudoflow-draft-code', newCode);
               }}
               spellCheck={false}
               autoCapitalize="off"
@@ -759,17 +823,22 @@ export const IDEView: React.FC<IDEViewProps> = ({
                     color: testResults.passed ? '#065f46' : '#991b1b'
                   }}
                 >
-                  <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.3rem' }}>
-                    <CheckCircle size={15} />
-                    <span>
-                      {testResults.passed
-                        ? (isEs ? '¡Todos los casos de prueba superados!' : 'All test cases passed successfully!')
-                        : (isEs ? 'La solución no pasó todas las pruebas' : 'Solution failed some test cases')}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                    <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <CheckCircle size={15} />
+                      <span>
+                        {testResults.passed
+                          ? (isEs ? '¡Todos los casos de prueba superados!' : 'All test cases passed successfully!')
+                          : (isEs ? 'La solución no pasó todas las pruebas' : 'Solution failed some test cases')}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '0.68rem', opacity: 0.85, background: 'rgba(0,0,0,0.06)', padding: '2px 6px', borderRadius: '4px' }}>
+                      {isEs ? 'Evaluación formativa local' : 'Local formative assessment'}
                     </span>
                   </div>
                   {testResults.details.map((d: any) => (
                     <div key={d.index} style={{ fontSize: '0.78rem', marginTop: '0.2rem' }}>
-                      {isEs ? 'Caso' : 'Case'} {d.index} {d.isAdditional ? (isEs ? '(caso adicional)' : '(additional case)') : ''}:{' '}
+                      {isEs ? 'Caso' : 'Case'} {d.index} {d.isAdditional ? (isEs ? '(caso adicional formativo)' : '(additional formative case)') : ''}:{' '}
                       {d.passed
                         ? (isEs ? '✓ Correcto' : '✓ Passed')
                         : `${isEs ? '✗ Error' : '✗ Failed'}. ${isEs ? 'Salida obtenida' : 'Actual'}: [${d.actualOutputs?.join(', ')}], ${isEs ? 'esperada' : 'expected'}: [${d.expectedOutputs?.join(', ')}]${d.error ? ` (${d.error})` : ''}`}
@@ -858,11 +927,25 @@ export const IDEView: React.FC<IDEViewProps> = ({
           </div>
 
           <div className="ide-surface-content">
-            {activeSurfaceTab === 'flow' && (
+            {syntaxError && (activeSurfaceTab === 'flow' || activeSurfaceTab === 'ns' || activeSurfaceTab === 'uml') && (
+              <div style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: 'var(--pl-ink-2)' }}>
+                <div style={{ color: '#ef4444', fontWeight: 600, marginBottom: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                  <AlertCircle size={20} />
+                  <span>{isEs ? 'Diagrama no disponible por error sintáctico' : 'Diagram unavailable due to syntax error'}</span>
+                </div>
+                <p style={{ fontSize: '0.85rem', maxWidth: '420px', margin: '0 auto', lineHeight: 1.5 }}>
+                  {isEs
+                    ? 'El código contiene errores de sintaxis o caracteres no reconocidos. Corrige el código en el editor para sincronizar el diagrama automáticamente.'
+                    : 'The code contains syntax or lexical errors. Fix the code in the editor to automatically regenerate the diagram.'}
+                </p>
+              </div>
+            )}
+
+            {!syntaxError && activeSurfaceTab === 'flow' && (
               <FlowchartView data={flowchartData} activeLine={activeLine} />
             )}
 
-            {activeSurfaceTab === 'ns' && (
+            {!syntaxError && activeSurfaceTab === 'ns' && (
               <StructogramView blocks={structogramBlocks} activeLine={activeLine} />
             )}
 
@@ -870,7 +953,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
               <TraceTableView steps={traceSteps} currentStepIndex={currentStepIdx} />
             )}
 
-            {activeSurfaceTab === 'uml' && (
+            {!syntaxError && activeSurfaceTab === 'uml' && (
               <UmlClassView classes={ast?.classes || []} />
             )}
 

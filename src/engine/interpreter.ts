@@ -37,10 +37,16 @@ export class Interpreter {
   public static readonly MAX_STEPS = 50_000;
   public static readonly MAX_CALL_STACK_DEPTH = 100;
   public static readonly MAX_ARRAY_TOTAL_ELEMENTS = 100_000;
+  public static readonly MAX_OUTPUT_LINES = 2_000;
+  public static readonly MAX_TRACE_STEPS_STORED = 2_000;
+  public static readonly MAX_ARRAY_FORMAT_ELEMENTS = 8;
+  public static readonly DEFAULT_TIMEOUT_MS = 5_000;
 
   private maxSteps: number = Interpreter.MAX_STEPS;
   private maxCallStackDepth: number = Interpreter.MAX_CALL_STACK_DEPTH;
   private maxArrayElements: number = Interpreter.MAX_ARRAY_TOTAL_ELEMENTS;
+  private maxExecutionTimeMs: number = Interpreter.DEFAULT_TIMEOUT_MS;
+  private startTime: number = 0;
 
   private objectCounter: number = 0;
   private inputs: string[] = [];
@@ -53,11 +59,12 @@ export class Interpreter {
   public isFinished: boolean = false;
   public error?: string;
 
-  constructor(program: ProgramNode, options?: { maxSteps?: number; maxCallStackDepth?: number; maxArrayElements?: number }) {
+  constructor(program: ProgramNode, options?: { maxSteps?: number; maxCallStackDepth?: number; maxArrayElements?: number; maxExecutionTimeMs?: number }) {
     this.program = program;
-    if (options?.maxSteps) this.maxSteps = options.maxSteps;
-    if (options?.maxCallStackDepth) this.maxCallStackDepth = options.maxCallStackDepth;
-    if (options?.maxArrayElements) this.maxArrayElements = options.maxArrayElements;
+    if (options?.maxSteps !== undefined) this.maxSteps = options.maxSteps;
+    if (options?.maxCallStackDepth !== undefined) this.maxCallStackDepth = options.maxCallStackDepth;
+    if (options?.maxArrayElements !== undefined) this.maxArrayElements = options.maxArrayElements;
+    if (options?.maxExecutionTimeMs !== undefined) this.maxExecutionTimeMs = options.maxExecutionTimeMs;
 
     // Register classes and subprograms
     for (const cls of program.classes) {
@@ -124,10 +131,17 @@ export class Interpreter {
     }
   }
 
-  public runAll(inputs: string[] = [], throwOnError: boolean = false): { outputs: string[]; steps: TraceStep[]; error?: string } {
+  public runAll(inputs: string[] = [], throwOnError: boolean = false, maxTimeMs?: number): { outputs: string[]; steps: TraceStep[]; error?: string } {
+    if (maxTimeMs !== undefined) this.maxExecutionTimeMs = maxTimeMs;
+    this.startTime = Date.now();
     this.setInputs(inputs);
     const gen = this.generateSteps();
     while (!this.isFinished) {
+      if (this.maxExecutionTimeMs > 0 && (Date.now() - this.startTime > this.maxExecutionTimeMs)) {
+        this.error = `Tiempo límite de ejecución superado (${this.maxExecutionTimeMs} ms). Posible bucle infinito o cómputo excesivo.`;
+        this.isFinished = true;
+        break;
+      }
       const res = gen.next();
       if (res.done) break;
     }
@@ -145,6 +159,26 @@ export class Interpreter {
     return this.resolveVariable(name);
   }
 
+  private consumeStep(line?: number): void {
+    if (!this.startTime) {
+      this.startTime = Date.now();
+    }
+    this.stepNumber++;
+    if (this.stepNumber > this.maxSteps) {
+      const lineMsg = line ? ` (en línea ${line})` : '';
+      throw new Error(`Límite de ejecución alcanzado (${this.maxSteps} pasos)${lineMsg}. Posible bucle infinito o recursión excesiva.`);
+    }
+    if (this.maxExecutionTimeMs > 0 && (Date.now() - this.startTime > this.maxExecutionTimeMs)) {
+      const lineMsg = line ? ` (en línea ${line})` : '';
+      throw new Error(`Tiempo máximo de ejecución excedido (${this.maxExecutionTimeMs} ms)${lineMsg}. Posible bucle infinito.`);
+    }
+  }
+
+  private recordStep(step: TraceStep): void {
+    if (this.steps.length < Interpreter.MAX_TRACE_STEPS_STORED) {
+      this.steps.push(step);
+    }
+  }
 
   private *executeBlock(statements: ASTNode[]): Generator<TraceStep, boolean | void, unknown> {
     for (const stmt of statements) {
@@ -155,10 +189,7 @@ export class Interpreter {
   }
 
   private *executeStatement(stmt: ASTNode): Generator<TraceStep, boolean | void, unknown> {
-    this.stepNumber++;
-    if (this.stepNumber > this.maxSteps) {
-      throw new Error(`Límite de ejecución alcanzado (${this.maxSteps} pasos). Posible bucle infinito o recursión excesiva.`);
-    }
+    this.consumeStep(stmt.line);
 
     switch (stmt.type) {
       case 'Declaration': {
@@ -172,7 +203,7 @@ export class Interpreter {
           variables: this.getVariablesSnapshot(),
           changedVar: decl.variableName
         };
-        this.steps.push(step);
+        this.recordStep(step);
         yield step;
         break;
       }
@@ -204,7 +235,7 @@ export class Interpreter {
           variables: this.getVariablesSnapshot(),
           changedVar: dim.name
         };
-        this.steps.push(step);
+        this.recordStep(step);
         yield step;
         break;
       }
@@ -242,7 +273,7 @@ export class Interpreter {
           variables: this.getVariablesSnapshot(),
           changedVar: varName
         };
-        this.steps.push(step);
+        this.recordStep(step);
         yield step;
         break;
       }
@@ -257,7 +288,7 @@ export class Interpreter {
             // Interactive waiting
             this.isWaitingForInput = true;
             this.inputTarget = target.name;
-            val = 0; // fallback until input provided
+            val = ''; // empty string until input provided
           }
           this.assignValue(target.name, val);
 
@@ -268,7 +299,7 @@ export class Interpreter {
             variables: this.getVariablesSnapshot(),
             changedVar: target.name
           };
-          this.steps.push(step);
+          this.recordStep(step);
           yield step;
         }
         break;
@@ -278,7 +309,11 @@ export class Interpreter {
         const write = stmt as WriteNode;
         const lineParts = write.expressions.map(e => this.formatValueForPrint(this.evalExpression(e)));
         const fullOutput = lineParts.join('');
-        this.outputs.push(fullOutput);
+        if (this.outputs.length < Interpreter.MAX_OUTPUT_LINES) {
+          this.outputs.push(fullOutput);
+        } else if (this.outputs.length === Interpreter.MAX_OUTPUT_LINES) {
+          this.outputs.push(`[Salida truncada: se alcanzó el límite de ${Interpreter.MAX_OUTPUT_LINES} líneas de salida]`);
+        }
 
         const step: TraceStep = {
           stepNumber: this.stepNumber,
@@ -287,7 +322,7 @@ export class Interpreter {
           variables: this.getVariablesSnapshot(),
           outputLog: fullOutput
         };
-        this.steps.push(step);
+        this.recordStep(step);
         yield step;
         break;
       }
@@ -301,7 +336,7 @@ export class Interpreter {
           action: `Si (${cond ? 'Verdadero' : 'Falso'})`,
           variables: this.getVariablesSnapshot()
         };
-        this.steps.push(step);
+        this.recordStep(step);
         yield step;
 
         if (cond) {
@@ -323,7 +358,7 @@ export class Interpreter {
           action: `Segun ${this.formatValue(selVal)}`,
           variables: this.getVariablesSnapshot()
         };
-        this.steps.push(step);
+        this.recordStep(step);
         yield step;
 
         let matched = false;
@@ -345,12 +380,8 @@ export class Interpreter {
 
       case 'While': {
         const wh = stmt as WhileNode;
-        let loopCount = 0;
         while (true) {
-          loopCount++;
-          if (loopCount > this.maxSteps || this.stepNumber > this.maxSteps) {
-            throw new Error(`Límite de iteraciones alcanzado en bucle Mientras (posible bucle infinito en línea ${wh.line})`);
-          }
+          this.consumeStep(wh.line);
           const cond = Boolean(this.evalExpression(wh.condition));
           const step: TraceStep = {
             stepNumber: this.stepNumber,
@@ -358,30 +389,24 @@ export class Interpreter {
             action: `Mientras (${cond ? 'Verdadero' : 'Falso'})`,
             variables: this.getVariablesSnapshot()
           };
-          this.steps.push(step);
+          this.recordStep(step);
           yield step;
 
           if (!cond) break;
 
           const ret = yield* this.executeBlock(wh.body);
           if (ret) return true;
-          this.stepNumber++;
         }
         break;
       }
 
       case 'Repeat': {
         const rep = stmt as RepeatNode;
-        let loopCount = 0;
         while (true) {
-          loopCount++;
-          if (loopCount > this.maxSteps || this.stepNumber > this.maxSteps) {
-            throw new Error(`Límite de iteraciones alcanzado en bucle Repetir-Hasta (posible bucle infinito en línea ${rep.line})`);
-          }
+          this.consumeStep(rep.line);
           const ret = yield* this.executeBlock(rep.body);
           if (ret) return true;
 
-          this.stepNumber++;
           const cond = Boolean(this.evalExpression(rep.condition));
           const step: TraceStep = {
             stepNumber: this.stepNumber,
@@ -389,7 +414,7 @@ export class Interpreter {
             action: `Hasta Que (${cond ? 'Verdadero' : 'Falso'})`,
             variables: this.getVariablesSnapshot()
           };
-          this.steps.push(step);
+          this.recordStep(step);
           yield step;
 
           if (cond) break; // Exits when condition is true
@@ -406,13 +431,9 @@ export class Interpreter {
 
         let current = start;
         this.assignValue(f.variableName, current);
-        let loopCount = 0;
 
         while ((stepVal > 0 && current <= end) || (stepVal < 0 && current >= end)) {
-          loopCount++;
-          if (loopCount > this.maxSteps || this.stepNumber > this.maxSteps) {
-            throw new Error(`Límite de iteraciones alcanzado en bucle Para (línea ${f.line})`);
-          }
+          this.consumeStep(f.line);
           const step: TraceStep = {
             stepNumber: this.stepNumber,
             lineNumber: f.line,
@@ -420,7 +441,7 @@ export class Interpreter {
             variables: this.getVariablesSnapshot(),
             changedVar: f.variableName
           };
-          this.steps.push(step);
+          this.recordStep(step);
           yield step;
 
           const ret = yield* this.executeBlock(f.body);
@@ -428,7 +449,6 @@ export class Interpreter {
 
           current += stepVal;
           this.assignValue(f.variableName, current);
-          this.stepNumber++;
         }
         break;
       }
@@ -445,7 +465,7 @@ export class Interpreter {
           action: `Retornar ${this.formatValue(retVal)}`,
           variables: this.getVariablesSnapshot()
         };
-        this.steps.push(step);
+        this.recordStep(step);
         yield step;
         (this.currentFrame() as any).returnValue = retVal;
         return true;
@@ -460,7 +480,7 @@ export class Interpreter {
           action: `Llamada a procedimiento`,
           variables: this.getVariablesSnapshot()
         };
-        this.steps.push(step);
+        this.recordStep(step);
         yield step;
         break;
       }
@@ -866,20 +886,35 @@ export class Interpreter {
   }
 
   private parsePrimitiveInput(val: string): any {
+    if (val === '') return '';
     const trimmed = val.trim();
+    if (trimmed === '') return val;
     if (/^-?\d+$/.test(trimmed)) return parseInt(trimmed, 10);
     if (/^-?\d+\.\d+$/.test(trimmed)) return parseFloat(trimmed);
     if (trimmed.toLowerCase() === 'verdadero' || trimmed.toLowerCase() === 'true') return true;
     if (trimmed.toLowerCase() === 'falso' || trimmed.toLowerCase() === 'false') return false;
-    return trimmed;
+    return val;
   }
 
-  private formatValue(val: any): string {
+  private formatValue(val: any, depth: number = 0): string {
     if (val === null || val === undefined) return '-';
     if (typeof val === 'boolean') return val ? 'Verdadero' : 'Falso';
     if (typeof val === 'object' && val.id) return val.id; // e.g. "Persona#1"
-    if (Array.isArray(val)) return `[${val.map(x => this.formatValue(x)).join(', ')}]`;
-    return String(val);
+    if (Array.isArray(val)) {
+      if (depth >= 2) return `[Arreglo (${val.length} elem)]`;
+      const maxShow = Interpreter.MAX_ARRAY_FORMAT_ELEMENTS;
+      if (val.length <= maxShow) {
+        return `[${val.map(x => this.formatValue(x, depth + 1)).join(', ')}]`;
+      } else {
+        const preview = val.slice(0, maxShow).map(x => this.formatValue(x, depth + 1)).join(', ');
+        return `[${preview}, ... +${val.length - maxShow} más] (${val.length} elem)`;
+      }
+    }
+    const str = String(val);
+    if (str.length > 200) {
+      return str.slice(0, 197) + '...';
+    }
+    return str;
   }
 
   private formatValueForPrint(val: any): string {

@@ -672,24 +672,14 @@ export class Parser {
   }
 
   private parseMultiplication(): ExpressionNode {
-    let expr = this.parsePower();
+    let expr = this.parseUnary();
     while (this.check('STAR') || this.check('SLASH') || this.check('MOD')) {
       const op = this.advance().value;
-      const right = this.parsePower();
+      const right = this.parseUnary();
       expr = { type: 'BinaryOp', operator: op, left: expr, right };
     }
     return expr;
   }
-
-  private parsePower(): ExpressionNode {
-    const expr = this.parseUnary();
-    if (this.match('POW')) {
-      const right = this.parsePower();
-      return { type: 'BinaryOp', operator: '^', left: expr, right };
-    }
-    return expr;
-  }
-
 
   private parseUnary(): ExpressionNode {
     if (this.match('NOT')) {
@@ -700,8 +690,19 @@ export class Parser {
       const arg = this.parseUnary();
       return { type: 'UnaryOp', operator: '-', argument: arg };
     }
-    return this.parsePrimary();
+    return this.parsePower();
   }
+
+  private parsePower(): ExpressionNode {
+    const expr = this.parsePrimary();
+    if (this.match('POW')) {
+      const right = this.parseUnary();
+      return { type: 'BinaryOp', operator: '^', left: expr, right };
+    }
+    return expr;
+  }
+
+
 
   private parsePrimary(): ExpressionNode {
     if (this.match('NUMBER')) {
