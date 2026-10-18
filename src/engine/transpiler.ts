@@ -5,14 +5,37 @@
  * Alcance y limitaciones:
  * - Diseñado para algoritmos educativos (declaraciones, lectura/escritura, condicionales, bucles, arreglos básicos 1D/2D).
  * - En Rust, arreglos >2D o mutabilidad compleja pueden requerir estructuras manuales adicionales.
- * - No sustituye a un compilador de producción; valida siempre el código generado con el compilador nativo de destino.
+ * - Enmascaramiento de cadenas: previene que palabras clave (NO, Y, O, =) dentro de literales sean corrompidas.
+ * - Inicialización por defecto de variables para evitar UnboundLocalError en Python y errores de tipo en Rust.
+ * - Generación de 'pass' en bloques Python vacíos para asegurar código ejecutable y válido.
+ * - Indexación de arreglos multidimensionales compatible con Python y Rust ([i, j] -> [i][j]).
  */
+
+export function maskStrings(code: string): { masked: string; strings: string[] } {
+  const strings: string[] = [];
+  const masked = code.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, (match) => {
+    const placeholder = `__PSEUDO_STR_${strings.length}__`;
+    strings.push(match);
+    return placeholder;
+  });
+  return { masked, strings };
+}
+
+export function unmaskStrings(code: string, strings: string[]): string {
+  return code.replace(/__PSEUDO_STR_(\d+)__/g, (_, idx) => {
+    const num = Number(idx);
+    return strings[num] !== undefined ? strings[num] : '';
+  });
+}
 
 function splitArgs(raw: string): string[] {
   const parts: string[] = [];
   let current = '';
   let inString = false;
   let quoteChar = '';
+  let bracketDepth = 0;
+  let parenDepth = 0;
+
   for (let i = 0; i < raw.length; i++) {
     const ch = raw[i];
     if ((ch === '"' || ch === "'") && (i === 0 || raw[i - 1] !== '\\')) {
@@ -22,8 +45,14 @@ function splitArgs(raw: string): string[] {
       } else if (ch === quoteChar) {
         inString = false;
       }
+    } else if (!inString) {
+      if (ch === '[') bracketDepth++;
+      else if (ch === ']') bracketDepth = Math.max(0, bracketDepth - 1);
+      else if (ch === '(') parenDepth++;
+      else if (ch === ')') parenDepth = Math.max(0, parenDepth - 1);
     }
-    if (ch === ',' && !inString) {
+
+    if (ch === ',' && !inString && bracketDepth === 0 && parenDepth === 0) {
       parts.push(current.trim());
       current = '';
     } else {
@@ -36,32 +65,93 @@ function splitArgs(raw: string): string[] {
   return parts;
 }
 
-function convertConditionToPython(cond: string): string {
-  let res = cond
+export function convertArrayIndices(expr: string): string {
+  return expr.replace(/\[([^\]]+)\]/g, (match, inner) => {
+    if (inner.includes(',')) {
+      const parts = inner.split(',').map((p: string) => p.trim());
+      return `[${parts.join('][')}]`;
+    }
+    return match;
+  });
+}
+
+export function convertConditionToPython(cond: string): string {
+  const { masked, strings } = maskStrings(cond);
+  let res = masked
     .replace(/\bVerdadero\b/gi, 'True')
     .replace(/\bFalso\b/gi, 'False')
     .replace(/\bY\b/g, ' and ')
     .replace(/\bO\b/g, ' or ')
     .replace(/\bNO\b/g, ' not ')
-    .replace(/<>/g, '!=');
+    .replace(/<>/g, '!=')
+    .replace(/\^/g, '**')
+    .replace(/\bMOD\b/gi, '%')
+    .replace(/\bDIV\b/gi, '//')
+    .replace(/\bEste\./g, 'self.');
 
   // Reemplazar '=' simple por '==' sin afectar '<=', '>=', '!=', ':=', '=='
   res = res.replace(/(?<![<>=!:])=(?!=)/g, '==');
-  return res.trim();
+  res = convertArrayIndices(res);
+  return unmaskStrings(res, strings).trim();
 }
 
-function convertConditionToRust(cond: string): string {
-  let res = cond
+export function convertExpressionToPython(expr: string): string {
+  const { masked, strings } = maskStrings(expr);
+  let res = masked
+    .replace(/\bVerdadero\b/gi, 'True')
+    .replace(/\bFalso\b/gi, 'False')
+    .replace(/\bY\b/g, ' and ')
+    .replace(/\bO\b/g, ' or ')
+    .replace(/\bNO\b/g, ' not ')
+    .replace(/<>/g, '!=')
+    .replace(/\^/g, '**')
+    .replace(/\bMOD\b/gi, '%')
+    .replace(/\bDIV\b/gi, '//')
+    .replace(/\bEste\./g, 'self.')
+    .replace(/\bNuevo\s+([a-zA-Z0-9_]+)/g, '$1')
+    .replace(/\b(?:rc|raiz)\s*\(/gi, 'math.sqrt(')
+    .replace(/\b(?:sen|seno)\s*\(/gi, 'math.sin(')
+    .replace(/\b(?:cos|coseno)\s*\(/gi, 'math.cos(')
+    .replace(/\b(?:tan|tangente)\s*\(/gi, 'math.tan(')
+    .replace(/\bln\s*\(/gi, 'math.log(')
+    .replace(/\bexp\s*\(/gi, 'math.exp(')
+    .replace(/\btrunc\s*\(/gi, 'math.trunc(')
+    .replace(/\bredon\s*\(/gi, 'round(');
+
+  res = convertArrayIndices(res);
+  return unmaskStrings(res, strings).trim();
+}
+
+export function convertConditionToRust(cond: string): string {
+  const { masked, strings } = maskStrings(cond);
+  let res = masked
     .replace(/\bVerdadero\b/gi, 'true')
     .replace(/\bFalso\b/gi, 'false')
     .replace(/\bY\b/g, ' && ')
     .replace(/\bO\b/g, ' || ')
     .replace(/\bNO\b/g, ' !')
-    .replace(/<>/g, '!=');
+    .replace(/<>/g, '!=')
+    .replace(/\bMOD\b/gi, '%')
+    .replace(/(\([^()]+\)|[a-zA-Z0-9_.]+)\s*\^\s*(\([^()]+\)|[a-zA-Z0-9_.]+)/g, 'i64::pow($1, ($2) as u32)');
 
   // Reemplazar '=' simple por '==' sin afectar '<=', '>=', '!=', ':=', '=='
   res = res.replace(/(?<![<>=!:])=(?!=)/g, '==');
-  return res.trim();
+  res = convertArrayIndices(res);
+  return unmaskStrings(res, strings).trim();
+}
+
+export function convertExpressionToRust(expr: string): string {
+  const { masked, strings } = maskStrings(expr);
+  let res = masked
+    .replace(/\bVerdadero\b/gi, 'true')
+    .replace(/\bFalso\b/gi, 'false')
+    .replace(/\bMOD\b/gi, '%')
+    .replace(/\bDIV\b/gi, '/')
+    .replace(/<>/g, '!=')
+    .replace(/(\([^()]+\)|[a-zA-Z0-9_.]+)\s*\^\s*(\([^()]+\)|[a-zA-Z0-9_.]+)/g, 'i64::pow($1, ($2) as u32)');
+
+  res = convertArrayIndices(res);
+  return unmaskStrings(res, strings).trim();
 }
 
 function generatePythonNestedList(dims: string[]): string {
@@ -73,11 +163,46 @@ function generatePythonNestedList(dims: string[]): string {
   return res;
 }
 
+function ensurePythonBlockBodies(lines: string[]): string[] {
+  const result: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    result.push(lines[i]);
+    const trimmed = lines[i].trim();
+    if (trimmed.endsWith(':') && !trimmed.startsWith('#')) {
+      const baseIndent = lines[i].match(/^(\s*)/)?.[1].length ?? 0;
+      let hasStatement = false;
+      let j = i + 1;
+      while (j < lines.length) {
+        const nextRaw = lines[j];
+        const nextTrimmed = nextRaw.trim();
+        if (!nextTrimmed) {
+          j++;
+          continue;
+        }
+        const nextIndent = nextRaw.match(/^(\s*)/)?.[1].length ?? 0;
+        if (nextIndent <= baseIndent) {
+          break;
+        }
+        if (!nextTrimmed.startsWith('#')) {
+          hasStatement = true;
+          break;
+        }
+        j++;
+      }
+      if (!hasStatement) {
+        result.push(' '.repeat(baseIndent + 4) + 'pass');
+      }
+    }
+  }
+  return result;
+}
+
 export function transpileToPython(pseudocode: string): string {
   const lines = pseudocode.split('\n');
   const pyLines: string[] = [];
   const varTypes = new Map<string, string>();
   let indent = 0;
+  let hasMain = false;
 
   for (const raw of lines) {
     const line = raw.trim();
@@ -106,6 +231,7 @@ export function transpileToPython(pseudocode: string): string {
     // Proceso / Algoritmo
     const procMatch = line.match(/^(?:Proceso|Algoritmo|algorithm)\s+([a-zA-Z0-9_]+)/i);
     if (procMatch) {
+      hasMain = true;
       pyLines.push(`def main():`);
       indent++;
       continue;
@@ -119,8 +245,16 @@ export function transpileToPython(pseudocode: string): string {
         const dataType = m[2].toLowerCase();
         for (const v of rawVars) {
           varTypes.set(v.toLowerCase(), dataType);
+          if (dataType === 'cadena' || dataType === 'texto' || dataType === 'caracter') {
+            pyLines.push('    '.repeat(indent) + `${v}: str = ""`);
+          } else if (dataType === 'real') {
+            pyLines.push('    '.repeat(indent) + `${v}: float = 0.0`);
+          } else if (dataType === 'logico' || dataType === 'boolean') {
+            pyLines.push('    '.repeat(indent) + `${v}: bool = False`);
+          } else {
+            pyLines.push('    '.repeat(indent) + `${v}: int = 0`);
+          }
         }
-        pyLines.push('    '.repeat(indent) + `# ${m[1]}: ${m[2]}`);
       }
       continue;
     }
@@ -139,10 +273,11 @@ export function transpileToPython(pseudocode: string): string {
     if (writeMatch) {
       const rawArgs = writeMatch[1].replace(/;+$/, '').trim();
       const parts = splitArgs(rawArgs);
-      if (parts.length > 1) {
-        pyLines.push('    '.repeat(indent) + `print(${rawArgs}, sep="")`);
+      const pyParts = parts.map(p => convertExpressionToPython(p));
+      if (pyParts.length > 1) {
+        pyLines.push('    '.repeat(indent) + `print(${pyParts.join(', ')}, sep="")`);
       } else {
-        pyLines.push('    '.repeat(indent) + `print(${rawArgs})`);
+        pyLines.push('    '.repeat(indent) + `print(${pyParts[0] || "''"})`);
       }
       continue;
     }
@@ -188,14 +323,19 @@ export function transpileToPython(pseudocode: string): string {
     const forMatch = line.match(/^(?:Para|for)\s+([a-zA-Z0-9_]+)\s*(?:<-|:=|=)\s*(.+?)\s+(?:Hasta|to)\s+(.+?)(?:\s+(?:Con Paso|step)\s+(.+?))?\s+(?:Hacer|do)/i);
     if (forMatch) {
       const v = forMatch[1];
-      const start = forMatch[2];
-      const end = forMatch[3];
-      const step = forMatch[4] || '1';
+      const start = convertExpressionToPython(forMatch[2].trim());
+      const end = convertExpressionToPython(forMatch[3].trim());
+      const step = forMatch[4]?.trim() || '1';
       const stepNum = Number(step);
-      if (!isNaN(stepNum) && stepNum < 0) {
-        pyLines.push('    '.repeat(indent) + `for ${v} in range(${start}, (${end}) - 1, ${step}):`);
+      if (!isNaN(stepNum)) {
+        if (stepNum < 0) {
+          pyLines.push('    '.repeat(indent) + `for ${v} in range(${start}, (${end}) - 1, ${stepNum}):`);
+        } else {
+          pyLines.push('    '.repeat(indent) + `for ${v} in range(${start}, (${end}) + 1, ${stepNum}):`);
+        }
       } else {
-        pyLines.push('    '.repeat(indent) + `for ${v} in range(${start}, (${end}) + 1, ${step}):`);
+        const stepExpr = convertExpressionToPython(step);
+        pyLines.push('    '.repeat(indent) + `for ${v} in range(${start}, (${end}) + (1 if (${stepExpr}) > 0 else -1), ${stepExpr}):`);
       }
       indent++;
       continue;
@@ -220,18 +360,34 @@ export function transpileToPython(pseudocode: string): string {
       continue;
     }
 
-    // Asignación <-
-    let cleanLine = line.replace(/<-/g, '=').replace(/;+$/, '');
-    cleanLine = cleanLine.replace(/Este\./g, 'self.');
-    cleanLine = cleanLine.replace(/Nuevo\s+([a-zA-Z0-9_]+)/g, '$1');
+    // Asignación <-, :=, =
+    const assignMatch = line.match(/^([a-zA-Z0-9_[\].,\s]+?)\s*(?:<-|:=|=)\s*(.+?);?$/);
+    if (assignMatch && !line.startsWith('Para') && !line.startsWith('Si') && !line.startsWith('Mientras')) {
+      const target = convertArrayIndices(assignMatch[1].trim().replace(/\bEste\./g, 'self.'));
+      const expr = convertExpressionToPython(assignMatch[2].trim());
+      pyLines.push('    '.repeat(indent) + `${target} = ${expr}`);
+      continue;
+    }
+
+    // Fallback general para líneas sueltas (ej. llamadas a función/método)
+    const cleanLine = convertExpressionToPython(line.replace(/;+$/, ''));
     pyLines.push('    '.repeat(indent) + cleanLine);
   }
 
-  pyLines.push('');
-  pyLines.push('if __name__ == "__main__":');
-  pyLines.push('    main()');
+  const processed = ensurePythonBlockBodies(pyLines);
+  const needsMath = processed.some(l => /\bmath\./.test(l));
 
-  return pyLines.join('\n');
+  if (hasMain) {
+    processed.push('');
+    processed.push('if __name__ == "__main__":');
+    processed.push('    main()');
+  }
+
+  if (needsMath) {
+    return 'import math\n\n' + processed.join('\n');
+  }
+
+  return processed.join('\n');
 }
 
 export function transpileToRust(pseudocode: string): string {
@@ -246,6 +402,10 @@ export function transpileToRust(pseudocode: string): string {
 
     if (line.startsWith('//')) {
       rsLines.push('    '.repeat(indent) + line);
+      continue;
+    }
+
+    if (/^(?:Proceso|Algoritmo|algorithm)\s+/i.test(line)) {
       continue;
     }
 
@@ -326,19 +486,35 @@ export function transpileToRust(pseudocode: string): string {
     if (writeMatch) {
       const rawArgs = writeMatch[1].replace(/;+$/, '').trim();
       const parts = splitArgs(rawArgs);
-      if (parts.length === 1) {
-        rsLines.push('    '.repeat(indent) + `println!("{}", ${parts[0]});`);
+      const rsParts = parts.map(p => convertExpressionToRust(p));
+      if (rsParts.length === 1) {
+        rsLines.push('    '.repeat(indent) + `println!("{}", ${rsParts[0]});`);
       } else {
-        const fmt = parts.map(() => '{}').join('');
-        rsLines.push('    '.repeat(indent) + `println!("${fmt}", ${parts.join(', ')});`);
+        const fmt = rsParts.map(() => '{}').join('');
+        rsLines.push('    '.repeat(indent) + `println!("${fmt}", ${rsParts.join(', ')});`);
       }
       continue;
     }
 
     // Asignación
-    const assignMatch = line.match(/^([a-zA-Z0-9_[\\],. ]+?)\s*(?:<-|:=|=)\s*(.+?);?$/);
+    const assignMatch = line.match(/^([a-zA-Z0-9_[\].,\s]+?)\s*(?:<-|:=|=)\s*(.+?);?$/);
     if (assignMatch && !line.startsWith('Para') && !line.startsWith('Si') && !line.startsWith('Mientras')) {
-      rsLines.push('    '.repeat(indent) + `${assignMatch[1].trim()} = ${assignMatch[2].trim()};`);
+      const rawTarget = convertArrayIndices(assignMatch[1].trim());
+      let rhs = convertExpressionToRust(assignMatch[2].trim());
+      const targetType = varTypes.get(rawTarget.toLowerCase());
+      if (targetType === 'String' && (rhs.startsWith('"') || rhs.startsWith("'"))) {
+        rhs = `${rhs}.to_string()`;
+      }
+      if (/^[a-zA-Z0-9_]+$/.test(rawTarget) && !varTypes.has(rawTarget.toLowerCase())) {
+        varTypes.set(rawTarget.toLowerCase(), 'auto');
+        if (rhs.startsWith('"') || rhs.startsWith("'")) {
+          rsLines.push('    '.repeat(indent) + `let mut ${rawTarget} = ${rhs}.to_string();`);
+        } else {
+          rsLines.push('    '.repeat(indent) + `let mut ${rawTarget} = ${rhs};`);
+        }
+      } else {
+        rsLines.push('    '.repeat(indent) + `${rawTarget} = ${rhs};`);
+      }
       continue;
     }
 
