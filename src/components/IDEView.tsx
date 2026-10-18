@@ -38,6 +38,7 @@ import { generateFlowchart } from '../engine/flowchart';
 import { generateStructogram, StructogramBlock } from '../engine/structogram';
 import { TraceStep } from '../engine/types';
 import { safeStorageGet, safeStorageSet, safeStorageRemove } from '../engine/storage';
+import { runExerciseValidation, cancelCurrentValidation, ValidationProgress } from '../engine/executionService';
 
 import { FlowchartView } from './FlowchartView';
 import { StructogramView } from './StructogramView';
@@ -214,6 +215,8 @@ export const IDEView: React.FC<IDEViewProps> = ({
     return null;
   });
   const [testResults, setTestResults] = useState<{ passed: boolean; details: any[] } | null>(null);
+  const [isValidating, setIsValidating] = useState<boolean>(false);
+  const [validationProgress, setValidationProgress] = useState<ValidationProgress | null>(null);
 
   /**
    * Reset execution explicitly with the provided code string
@@ -366,51 +369,49 @@ export const IDEView: React.FC<IDEViewProps> = ({
     }
   };
 
-  // Run automated test suite for an exercise
-  const handleValidateExercise = () => {
-    if (!selectedExercise) return;
+  // Run automated test suite for an exercise off the main thread
+  const handleValidateExercise = async () => {
+    if (!selectedExercise || isValidating) return;
     setIsPlaying(false);
     setIsConsoleCollapsedMobile(false);
+    setIsValidating(true);
+    setValidationProgress({
+      current: 0,
+      total: (selectedExercise.visibleCases?.length || 0) + (selectedExercise.hiddenCases?.length || 0)
+    });
 
     try {
-      const lexer = new Lexer(code);
-      const tokens = lexer.tokenize();
-      const parser = new Parser(tokens);
-      const parsedAst = parser.parse();
-
-      const allCases = [...(selectedExercise.visibleCases || []), ...(selectedExercise.hiddenCases || [])];
-      let allPassed = true;
-      const details: any[] = [];
-
-      for (let i = 0; i < allCases.length; i++) {
-        const testCase = allCases[i];
-        const testInterp = new Interpreter(parsedAst);
-        const res = testInterp.runAll(testCase.inputs || []);
-
-        const actualStr = res.outputs.map(s => s.trim()).join('\n');
-        const expectedStr = (testCase.expectedOutputs || []).map((s: string) => s.trim()).join('\n');
-
-        const passed = actualStr === expectedStr && !res.error;
-        if (!passed) allPassed = false;
-
-        details.push({
-          index: i + 1,
-          inputs: testCase.inputs,
-          expectedOutputs: testCase.expectedOutputs,
-          actualOutputs: res.outputs,
-          passed,
-          error: res.error,
-          isAdditional: i >= (selectedExercise.visibleCases || []).length
-        });
-      }
-
-      setTestResults({ passed: allPassed, details });
+      const result = await runExerciseValidation(
+        code,
+        selectedExercise.visibleCases || [],
+        selectedExercise.hiddenCases || [],
+        (progress) => setValidationProgress(progress)
+      );
+      setTestResults(result);
     } catch (e: any) {
       setTestResults({
         passed: false,
-        details: [{ index: 1, error: e.message || String(e), passed: false }]
+        details: [{ index: 1, error: e.message || String(e), passed: false, isAdditional: false }]
       });
+    } finally {
+      setIsValidating(false);
+      setValidationProgress(null);
     }
+  };
+
+  const handleCancelValidation = () => {
+    cancelCurrentValidation();
+    setIsValidating(false);
+    setValidationProgress(null);
+    setTestResults({
+      passed: false,
+      details: [{
+        index: 1,
+        error: isEs ? 'Validación detenida por el usuario.' : 'Validation stopped by user.',
+        passed: false,
+        isAdditional: false
+      }]
+    });
   };
 
   const toggleModuleAccordion = (modId: string) => {
@@ -944,6 +945,47 @@ endAlgorithm
       {(!isConsoleCollapsedMobile || !isMobile) && (
         <>
           <div className="ide-console-body">
+            {isValidating && (
+              <div
+                style={{
+                  marginBottom: '0.75rem',
+                  padding: '0.65rem 0.8rem',
+                  borderRadius: '6px',
+                  background: 'var(--pl-sunken)',
+                  border: '1px solid var(--pl-line)',
+                  color: 'var(--pl-brand)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.55rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 500
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                  <RotateCcw size={15} className="pl-spin" aria-hidden="true" />
+                  <span>
+                    {isEs
+                      ? validationProgress && validationProgress.current > 0
+                        ? `Evaluando caso ${validationProgress.current} de ${validationProgress.total} en segundo plano...`
+                        : 'Iniciando validación en segundo plano...'
+                      : validationProgress && validationProgress.current > 0
+                        ? `Evaluating case ${validationProgress.current} of ${validationProgress.total} in background...`
+                        : 'Starting background validation...'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="pl-btn pl-btn--outline pl-btn--sm"
+                  style={{ padding: '0.15rem 0.55rem', fontSize: '0.74rem', borderColor: 'var(--pl-brand)' }}
+                  onClick={handleCancelValidation}
+                  title={isEs ? 'Detener validación' : 'Stop validation'}
+                >
+                  {isEs ? 'Detener' : 'Stop'}
+                </button>
+              </div>
+            )}
+
             {testResults && (
               <div
                 style={{
@@ -1230,12 +1272,30 @@ endAlgorithm
               <button
                 type="button"
                 className="pl-btn pl-btn--sm"
-                style={{ background: 'var(--pl-syn-str)', color: '#fff' }}
+                style={{ background: 'var(--pl-syn-str)', color: '#fff', opacity: isValidating ? 0.85 : 1 }}
                 onClick={handleValidateExercise}
+                disabled={isValidating}
                 title={isEs ? 'Evaluar con casos de prueba' : 'Validate test cases'}
               >
-                <CheckCircle size={14} />
-                <span>{isEs ? 'Comprobar' : 'Check'}</span>
+                {isValidating ? (
+                  <>
+                    <RotateCcw size={14} className="pl-spin" aria-hidden="true" />
+                    <span>
+                      {isEs
+                        ? validationProgress && validationProgress.current > 0
+                          ? `Evaluando (${validationProgress.current}/${validationProgress.total})...`
+                          : 'Evaluando...'
+                        : validationProgress && validationProgress.current > 0
+                          ? `Checking (${validationProgress.current}/${validationProgress.total})...`
+                          : 'Checking...'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle size={14} aria-hidden="true" />
+                    <span>{isEs ? 'Comprobar' : 'Check'}</span>
+                  </>
+                )}
               </button>
             )}
 
@@ -1285,12 +1345,22 @@ endAlgorithm
             <button
               type="button"
               className="pl-btn pl-btn--sm"
-              style={{ background: 'var(--pl-syn-str)', color: '#fff', padding: '0.3rem 0.55rem' }}
+              style={{ background: 'var(--pl-syn-str)', color: '#fff', padding: '0.3rem 0.55rem', opacity: isValidating ? 0.85 : 1 }}
               onClick={handleValidateExercise}
+              disabled={isValidating}
               title={isEs ? 'Evaluar reto' : 'Validate challenge'}
             >
-              <CheckCircle size={13} />
-              <span>{isEs ? 'Evaluar' : 'Check'}</span>
+              {isValidating ? (
+                <>
+                  <RotateCcw size={13} className="pl-spin" aria-hidden="true" />
+                  <span>{isEs ? 'Evaluando...' : 'Checking...'}</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={13} aria-hidden="true" />
+                  <span>{isEs ? 'Evaluar' : 'Check'}</span>
+                </>
+              )}
             </button>
           )}
 

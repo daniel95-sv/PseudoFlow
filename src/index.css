@@ -1606,4 +1606,18 @@ textarea:focus-visible,
   }
 }
 
+@keyframes pl-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pl-spin {
+  animation: pl-spin 0.85s linear infinite;
+}
+
+
 
