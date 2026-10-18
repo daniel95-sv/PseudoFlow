@@ -682,13 +682,14 @@ export class Parser {
   }
 
   private parsePower(): ExpressionNode {
-    let expr = this.parseUnary();
-    while (this.match('POW')) {
-      const right = this.parseUnary();
-      expr = { type: 'BinaryOp', operator: '^', left: expr, right };
+    const expr = this.parseUnary();
+    if (this.match('POW')) {
+      const right = this.parsePower();
+      return { type: 'BinaryOp', operator: '^', left: expr, right };
     }
     return expr;
   }
+
 
   private parseUnary(): ExpressionNode {
     if (this.match('NOT')) {

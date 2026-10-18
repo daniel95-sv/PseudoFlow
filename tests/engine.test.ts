@@ -227,4 +227,154 @@ describe('Code & State Synchronization (Auditoría P1)', () => {
   });
 });
 
+describe('Operator Precedence & Associativity Conformance (Auditoría P2)', () => {
+  it('evaluates exponentiation as right-associative (2 ^ 3 ^ 2 = 512)', () => {
+    const code = `
+      Algoritmo PotenciaAsoc
+        Definir res Como Entero;
+        res <- 2 ^ 3 ^ 2;
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll();
+    expect(interp.getVariable('res')).toBe(512);
+  });
+
+  it('respects arithmetic precedence rules and parentheses', () => {
+    const code = `
+      Algoritmo Precedencia
+        Definir a Como Entero;
+        Definir b Como Entero;
+        a <- 2 + 3 * 4;
+        b <- (2 + 3) * 4;
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll();
+    expect(interp.getVariable('a')).toBe(14);
+    expect(interp.getVariable('b')).toBe(20);
+  });
+
+  it('evaluates MOD and % operators identically', () => {
+    const code = `
+      Algoritmo Modulo
+        Definir m1 Como Entero;
+        Definir m2 Como Entero;
+        m1 <- 17 % 5;
+        m2 <- 17 MOD 5;
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll();
+    expect(interp.getVariable('m1')).toBe(2);
+    expect(interp.getVariable('m2')).toBe(2);
+  });
+
+  it('evaluates comparison operators correctly', () => {
+    const code = `
+      Algoritmo Comparaciones
+        Definir eq Como Logico;
+        Definir neq1 Como Logico;
+        Definir neq2 Como Logico;
+        Definir lt Como Logico;
+        Definir lte Como Logico;
+        Definir gt Como Logico;
+        Definir gte Como Logico;
+        eq <- (5 = 5);
+        neq1 <- (5 <> 4);
+        neq2 <- (5 != 4);
+        lt <- (3 < 5);
+        lte <- (5 <= 5);
+        gt <- (6 > 5);
+        gte <- (5 >= 5);
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll();
+    expect(interp.getVariable('eq')).toBe(true);
+    expect(interp.getVariable('neq1')).toBe(true);
+    expect(interp.getVariable('neq2')).toBe(true);
+    expect(interp.getVariable('lt')).toBe(true);
+    expect(interp.getVariable('lte')).toBe(true);
+    expect(interp.getVariable('gt')).toBe(true);
+    expect(interp.getVariable('gte')).toBe(true);
+  });
+});
+
+describe('Corpus of Invalid Inputs & Edge Cases (Auditoría Fase 1)', () => {
+  it('rejects array dimensions equal to 0 or negative', () => {
+    const codeZero = `
+      Algoritmo DimCero
+        Dimension a[0];
+      FinAlgoritmo
+    `;
+    const astZero = new Parser(new Lexer(codeZero).tokenize()).parse();
+    const interpZero = new Interpreter(astZero);
+    expect(() => interpZero.runAll([], true)).toThrowError(/debe ser mayor a 0/);
+
+    const codeNeg = `
+      Algoritmo DimNeg
+        Dimension a[-5];
+      FinAlgoritmo
+    `;
+    const astNeg = new Parser(new Lexer(codeNeg).tokenize()).parse();
+    const interpNeg = new Interpreter(astNeg);
+    expect(() => interpNeg.runAll([], true)).toThrowError(/debe ser mayor a 0/);
+  });
+
+  it('rejects square root of negative numbers', () => {
+    const code = `
+      Algoritmo RaizNeg
+        Definir r Como Real;
+        r <- rc(-9);
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    expect(() => interp.runAll([], true)).toThrowError(/raíz cuadrada de un número negativo/);
+  });
+
+  it('throws syntax error on unclosed Mientras block', () => {
+    const code = `
+      Algoritmo Incompleto
+        Definir x Como Entero;
+        Mientras x > 0 Hacer
+          x <- x - 1;
+      FinAlgoritmo
+    `;
+    expect(() => new Parser(new Lexer(code).tokenize()).parse()).toThrow();
+  });
+
+  it('throws syntax error on unclosed Si block', () => {
+    const code = `
+      Algoritmo IncompletoSi
+        Definir x Como Entero;
+        Si x > 0 Entonces
+          x <- 10;
+      FinAlgoritmo
+    `;
+    expect(() => new Parser(new Lexer(code).tokenize()).parse()).toThrow();
+  });
+
+  it('detects and limits infinite recursion depth', () => {
+    const code = `
+      Funcion Infinito()
+        Infinito();
+      FinFuncion
+
+      Algoritmo Recursion
+        Infinito();
+      FinAlgoritmo
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    expect(() => interp.runAll([], true)).toThrowError(/Profundidad máxima de pila de llamadas superada/);
+  });
+});
+
+
 

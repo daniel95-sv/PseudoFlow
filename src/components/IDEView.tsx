@@ -18,7 +18,8 @@ import {
   ChevronRight,
   Download,
   Upload,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 
 import { Lexer } from '../engine/lexer';
@@ -350,6 +351,18 @@ export const IDEView: React.FC<IDEViewProps> = ({
     e.target.value = '';
   };
 
+  const handleClearDraft = () => {
+    const confirmMsg = isEs
+      ? '¿Deseas restablecer el código al ejemplo inicial y borrar el borrador guardado en este navegador?'
+      : 'Reset code to default example and clear the draft saved in this browser?';
+    if (window.confirm(confirmMsg)) {
+      localStorage.removeItem('pseudoflow-draft-code');
+      setSelectedExercise(null);
+      setCode(DEFAULT_CODE);
+      resetExecution(DEFAULT_CODE);
+    }
+  };
+
   const lineCount = code.split('\n').length;
 
   return (
@@ -442,7 +455,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
           <button
             className="pl-btn pl-btn--outline pl-btn--sm"
             onClick={() => fileInputRef.current?.click()}
-            title={isEs ? 'Abrir archivo de código local' : 'Open local code file'}
+            title={isEs ? 'Abrir archivo de código local (.pseudo, .txt, .psc)' : 'Open local code file (.pseudo, .txt, .psc)'}
           >
             <Upload size={14} />
             <span>{isEs ? 'Abrir' : 'Open'}</span>
@@ -454,6 +467,15 @@ export const IDEView: React.FC<IDEViewProps> = ({
             accept=".pseudo,.txt,.psc"
             style={{ display: 'none' }}
           />
+
+          <button
+            className="pl-btn pl-btn--outline pl-btn--sm"
+            onClick={handleClearDraft}
+            title={isEs ? 'Restablecer al ejemplo inicial (elimina el borrador guardado en este navegador)' : 'Reset to default code (clears draft saved in this browser)'}
+          >
+            <Trash2 size={14} />
+            <span>{isEs ? 'Restablecer' : 'Clear'}</span>
+          </button>
         </div>
 
         {/* Global toggles */}
@@ -784,6 +806,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
                   placeholder={isEs ? 'Introduce el valor y pulsa Enter...' : 'Type value and press Enter...'}
                   value={interactiveInput}
                   onChange={e => setInteractiveInput(e.target.value)}
+                  aria-label={isEs ? 'Entrada para comando Leer' : 'Input for Leer statement'}
                   autoFocus
                 />
                 <button type="submit" className="pl-btn pl-btn--primary pl-btn--sm" style={{ marginLeft: '0.5rem' }}>
