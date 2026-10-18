@@ -10,9 +10,37 @@ import { TraceStep } from './types';
 
 export type { InteractiveStepResult };
 
+export interface InteractiveInputResult {
+  success: boolean;
+  error?: string;
+  cancelled?: boolean;
+}
+
+interface PendingReady {
+  sessionId: string;
+  requestId: string;
+  resolve: (res: { success: boolean; error?: string }) => void;
+  timer?: any;
+}
+
+interface PendingStep {
+  sessionId: string;
+  requestId: string;
+  resolve: (res: InteractiveStepResult) => void;
+  timer?: any;
+}
+
+interface PendingInput {
+  sessionId: string;
+  requestId: string;
+  resolve: (res: InteractiveInputResult) => void;
+  timer?: any;
+}
+
 export class InteractiveSession {
   private worker: Worker | null = null;
   private currentSessionId: string | null = null;
+  private currentOptions: InterpreterOptions | undefined = undefined;
   private fallbackInterp: Interpreter | null = null;
   private fallbackGen: Generator<TraceStep, void, unknown> | null = null;
   private isFallback: boolean = false;
@@ -20,9 +48,9 @@ export class InteractiveSession {
   private isStepping: boolean = false;
   private activeStepRequestId: string | null = null;
 
-  private pendingReadyResolve: ((res: { success: boolean; error?: string }) => void) | null = null;
-  private pendingStepResolve: ((res: InteractiveStepResult) => void) | null = null;
-  private pendingInputResolve: (() => void) | null = null;
+  private pendingReady: PendingReady | null = null;
+  private pendingStep: PendingStep | null = null;
+  private pendingInput: PendingInput | null = null;
 
   constructor() {
     this.initWorker();
@@ -33,29 +61,39 @@ export class InteractiveSession {
   }
 
   private flushPending(errorReason: string): void {
-    if (this.pendingReadyResolve) {
-      const cb = this.pendingReadyResolve;
-      this.pendingReadyResolve = null;
-      cb({ success: false, error: errorReason });
+    if (this.pendingReady) {
+      const pr = this.pendingReady;
+      this.pendingReady = null;
+      if (pr.timer) clearTimeout(pr.timer);
+      pr.resolve({ success: false, error: errorReason });
     }
 
-    if (this.pendingStepResolve) {
-      const cb = this.pendingStepResolve;
-      this.pendingStepResolve = null;
-      cb({
-        sessionId: this.currentSessionId || '',
+    if (this.pendingStep) {
+      const ps = this.pendingStep;
+      this.pendingStep = null;
+      if (ps.timer) clearTimeout(ps.timer);
+      this.isStepping = false;
+      this.activeStepRequestId = null;
+      ps.resolve({
+        sessionId: ps.sessionId, // Preserves its OWN original sessionId
         done: true,
         isWaitingForInput: false,
         isFinished: true,
         error: errorReason,
+        cancelled: true,
         outputs: []
       });
     }
 
-    if (this.pendingInputResolve) {
-      const cb = this.pendingInputResolve;
-      this.pendingInputResolve = null;
-      cb();
+    if (this.pendingInput) {
+      const pi = this.pendingInput;
+      this.pendingInput = null;
+      if (pi.timer) clearTimeout(pi.timer);
+      pi.resolve({
+        success: false,
+        cancelled: true,
+        error: errorReason
+      });
     }
 
     this.isStepping = false;
@@ -80,26 +118,29 @@ export class InteractiveSession {
 
         switch (data.type) {
           case 'SESSION_READY':
-            if (this.pendingReadyResolve) {
-              const cb = this.pendingReadyResolve;
-              this.pendingReadyResolve = null;
-              cb({ success: true });
+            if (this.pendingReady && (!data.requestId || this.pendingReady.requestId === data.requestId)) {
+              const pr = this.pendingReady;
+              this.pendingReady = null;
+              if (pr.timer) clearTimeout(pr.timer);
+              pr.resolve({ success: true });
             }
             break;
 
           case 'SESSION_ERROR':
-            if (this.pendingReadyResolve) {
-              const cb = this.pendingReadyResolve;
-              this.pendingReadyResolve = null;
-              cb({ success: false, error: data.error });
+            if (this.pendingReady && (!data.requestId || this.pendingReady.requestId === data.requestId)) {
+              const pr = this.pendingReady;
+              this.pendingReady = null;
+              if (pr.timer) clearTimeout(pr.timer);
+              pr.resolve({ success: false, error: data.error });
             }
-            if (this.pendingStepResolve) {
-              const cb = this.pendingStepResolve;
-              this.pendingStepResolve = null;
+            if (this.pendingStep && (!data.requestId || this.pendingStep.requestId === data.requestId)) {
+              const ps = this.pendingStep;
+              this.pendingStep = null;
+              if (ps.timer) clearTimeout(ps.timer);
               this.isStepping = false;
               this.activeStepRequestId = null;
-              cb({
-                sessionId: data.sessionId,
+              ps.resolve({
+                sessionId: ps.sessionId,
                 done: true,
                 isWaitingForInput: false,
                 isFinished: true,
@@ -110,24 +151,22 @@ export class InteractiveSession {
             break;
 
           case 'STEP_RESULT':
-            if (this.pendingStepResolve) {
-              if (this.activeStepRequestId && data.requestId && this.activeStepRequestId !== data.requestId) {
-                // Ignore stale step response
-                return;
-              }
-              const cb = this.pendingStepResolve;
-              this.pendingStepResolve = null;
+            if (this.pendingStep && (!data.requestId || this.pendingStep.requestId === data.requestId)) {
+              const ps = this.pendingStep;
+              this.pendingStep = null;
+              if (ps.timer) clearTimeout(ps.timer);
               this.isStepping = false;
               this.activeStepRequestId = null;
-              cb(data.result);
+              ps.resolve(data.result);
             }
             break;
 
           case 'INPUT_ACCEPTED':
-            if (this.pendingInputResolve) {
-              const cb = this.pendingInputResolve;
-              this.pendingInputResolve = null;
-              cb();
+            if (this.pendingInput && (!data.requestId || this.pendingInput.requestId === data.requestId)) {
+              const pi = this.pendingInput;
+              this.pendingInput = null;
+              if (pi.timer) clearTimeout(pi.timer);
+              pi.resolve({ success: true });
             }
             break;
 
@@ -152,6 +191,12 @@ export class InteractiveSession {
   }
 
   public async start(code: string, options?: InterpreterOptions): Promise<{ success: boolean; sessionId: string; error?: string }> {
+    // 1. Flush any prior in-flight operations with previous session context BEFORE setting new sessionId
+    this.flushPending('Sesión reemplazada por nueva inicialización.');
+
+    if (options !== undefined) {
+      this.currentOptions = options;
+    }
     const sessionId = `interactive_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.currentSessionId = sessionId;
 
@@ -161,7 +206,7 @@ export class InteractiveSession {
         const tokens = lexer.tokenize();
         const parser = new Parser(tokens);
         const parsedAst = parser.parse();
-        this.fallbackInterp = new Interpreter(parsedAst, { ...options, isInteractive: true });
+        this.fallbackInterp = new Interpreter(parsedAst, { ...this.currentOptions, isInteractive: true });
         this.fallbackGen = this.fallbackInterp.generateSteps();
         return { success: true, sessionId };
       } catch (err: any) {
@@ -169,20 +214,18 @@ export class InteractiveSession {
       }
     }
 
-    // Cancel any prior in-flight operations before starting a new session
-    this.flushPending('Sesión reemplazada por nueva inicialización.');
-
     const reqId = this.createRequestId();
     return new Promise((resolve) => {
       let timer: any = null;
       const onDone = (res: { success: boolean; error?: string }) => {
         if (timer) clearTimeout(timer);
+        this.pendingReady = null;
         resolve({ success: res.success, sessionId, error: res.error });
       };
 
       timer = setTimeout(() => {
-        if (this.pendingReadyResolve === onDone) {
-          this.pendingReadyResolve = null;
+        if (this.pendingReady && this.pendingReady.requestId === reqId) {
+          this.pendingReady = null;
           resolve({
             success: false,
             sessionId,
@@ -191,12 +234,18 @@ export class InteractiveSession {
         }
       }, 5000);
 
-      this.pendingReadyResolve = onDone;
+      this.pendingReady = {
+        sessionId,
+        requestId: reqId,
+        resolve: onDone,
+        timer
+      };
+
       this.worker!.postMessage({
         type: 'INIT_SESSION',
         sessionId,
         code,
-        options,
+        options: this.currentOptions,
         requestId: reqId
       } satisfies InteractiveWorkerRequest);
     });
@@ -210,6 +259,7 @@ export class InteractiveSession {
         isWaitingForInput: false,
         isFinished: true,
         error: 'Sesión desfasada o detenida.',
+        cancelled: true,
         outputs: []
       };
     }
@@ -261,26 +311,34 @@ export class InteractiveSession {
         if (timer) clearTimeout(timer);
         this.isStepping = false;
         this.activeStepRequestId = null;
+        this.pendingStep = null;
         resolve(res);
       };
 
       timer = setTimeout(() => {
-        if (this.pendingStepResolve === onDone) {
-          this.pendingStepResolve = null;
-          this.isStepping = false;
-          this.activeStepRequestId = null;
-          resolve({
-            sessionId,
-            done: true,
-            isWaitingForInput: false,
-            isFinished: true,
-            error: 'Tiempo de espera agotado al ejecutar paso en el Worker.',
-            outputs: []
-          });
+        if (this.pendingStep && this.pendingStep.requestId === reqId) {
+          console.warn(`Watchdog 10s triggered on step requestId ${reqId}. Terminating and restarting Worker.`);
+          if (this.worker) {
+            try {
+              this.worker.terminate();
+            } catch {
+              // Ignore
+            }
+            this.worker = null;
+          }
+          this.flushPending('Tiempo de espera agotado (watchdog 10s): el Worker interactivo no respondió y fue reiniciado.');
+          this.currentSessionId = null;
+          this.initWorker();
         }
       }, 10000);
 
-      this.pendingStepResolve = onDone;
+      this.pendingStep = {
+        sessionId,
+        requestId: reqId,
+        resolve: onDone,
+        timer
+      };
+
       this.worker!.postMessage({
         type: 'STEP',
         sessionId,
@@ -289,32 +347,45 @@ export class InteractiveSession {
     });
   }
 
-  public async provideInput(sessionId: string, value: string): Promise<void> {
-    if (sessionId !== this.currentSessionId) return;
+  public async provideInput(sessionId: string, value: string): Promise<InteractiveInputResult> {
+    if (sessionId !== this.currentSessionId) {
+      return { success: false, error: 'Sesión no activa o desfasada.' };
+    }
 
     if (this.isFallback || !this.worker) {
       if (this.fallbackInterp) {
         this.fallbackInterp.provideInput(value);
+        return { success: true };
       }
-      return;
+      return { success: false, error: 'No hay sesión interactiva activa.' };
     }
 
     const reqId = this.createRequestId();
     return new Promise((resolve) => {
       let timer: any = null;
-      const onDone = () => {
+      const onDone = (res: InteractiveInputResult) => {
         if (timer) clearTimeout(timer);
-        resolve();
+        this.pendingInput = null;
+        resolve(res);
       };
 
       timer = setTimeout(() => {
-        if (this.pendingInputResolve === onDone) {
-          this.pendingInputResolve = null;
-          resolve();
+        if (this.pendingInput && this.pendingInput.requestId === reqId) {
+          this.pendingInput = null;
+          resolve({
+            success: false,
+            error: 'Tiempo de espera agotado (5s) al enviar entrada al Worker.'
+          });
         }
       }, 5000);
 
-      this.pendingInputResolve = onDone;
+      this.pendingInput = {
+        sessionId,
+        requestId: reqId,
+        resolve: onDone,
+        timer
+      };
+
       this.worker!.postMessage({
         type: 'PROVIDE_INPUT',
         sessionId,
@@ -324,13 +395,19 @@ export class InteractiveSession {
     });
   }
 
-  public async reset(targetCode?: string): Promise<{ success: boolean; sessionId: string; error?: string }> {
+  public async reset(targetCode?: string, options?: InterpreterOptions): Promise<{ success: boolean; sessionId: string; error?: string }> {
+    // 1. Flush any prior in-flight operations with previous session context BEFORE setting new sessionId
+    this.flushPending('Sesión reiniciada.');
+
+    if (options !== undefined) {
+      this.currentOptions = options;
+    }
     const sessionId = `interactive_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.currentSessionId = sessionId;
 
     if (this.isFallback || !this.worker) {
       if (targetCode !== undefined) {
-        return this.start(targetCode);
+        return this.start(targetCode, this.currentOptions);
       }
       if (this.fallbackInterp) {
         this.fallbackInterp.reset();
@@ -339,20 +416,18 @@ export class InteractiveSession {
       return { success: true, sessionId };
     }
 
-    // Cancel any prior in-flight operations before resetting
-    this.flushPending('Sesión reiniciada.');
-
     const reqId = this.createRequestId();
     return new Promise((resolve) => {
       let timer: any = null;
       const onDone = (res: { success: boolean; error?: string }) => {
         if (timer) clearTimeout(timer);
+        this.pendingReady = null;
         resolve({ success: res.success, sessionId, error: res.error });
       };
 
       timer = setTimeout(() => {
-        if (this.pendingReadyResolve === onDone) {
-          this.pendingReadyResolve = null;
+        if (this.pendingReady && this.pendingReady.requestId === reqId) {
+          this.pendingReady = null;
           resolve({
             success: false,
             sessionId,
@@ -361,11 +436,18 @@ export class InteractiveSession {
         }
       }, 5000);
 
-      this.pendingReadyResolve = onDone;
+      this.pendingReady = {
+        sessionId,
+        requestId: reqId,
+        resolve: onDone,
+        timer
+      };
+
       this.worker!.postMessage({
         type: 'RESET_SESSION',
         sessionId,
         targetCode,
+        options: this.currentOptions,
         requestId: reqId
       } satisfies InteractiveWorkerRequest);
     });
@@ -383,10 +465,10 @@ export class InteractiveSession {
         // Ignore if worker already disconnected
       }
     }
+    this.flushPending('Sesión interactiva detenida.');
     this.currentSessionId = null;
     this.fallbackInterp = null;
     this.fallbackGen = null;
-    this.flushPending('Sesión interactiva detenida.');
   }
 
   public terminate(): void {

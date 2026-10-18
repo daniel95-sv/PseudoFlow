@@ -83,9 +83,10 @@ export function convertConditionToPython(cond: string): string {
   let res = masked
     .replace(/\bVerdadero\b/gi, 'True')
     .replace(/\bFalso\b/gi, 'False')
-    .replace(/\bY\b/g, ' and ')
-    .replace(/\bO\b/g, ' or ')
-    .replace(/\bNO\b/g, ' not ')
+    .replace(/\s*\bY\b\s*/g, ' and ')
+    .replace(/\s*\bO\b\s*/g, ' or ')
+    .replace(/\bNO\s+/gi, 'not ')
+    .replace(/\bNO\b/gi, 'not ')
     .replace(/<>/g, '!=')
     .replace(/\^/g, '**')
     .replace(/\bMOD\b/gi, '%')
@@ -103,9 +104,10 @@ export function convertExpressionToPython(expr: string): string {
   let res = masked
     .replace(/\bVerdadero\b/gi, 'True')
     .replace(/\bFalso\b/gi, 'False')
-    .replace(/\bY\b/g, ' and ')
-    .replace(/\bO\b/g, ' or ')
-    .replace(/\bNO\b/g, ' not ')
+    .replace(/\s*\bY\b\s*/g, ' and ')
+    .replace(/\s*\bO\b\s*/g, ' or ')
+    .replace(/\bNO\s+/gi, 'not ')
+    .replace(/\bNO\b/gi, 'not ')
     .replace(/<>/g, '!=')
     .replace(/\^/g, '**')
     .replace(/\bMOD\b/gi, '%')
@@ -201,16 +203,18 @@ function transformRustPowers(expr: string): string {
   return res;
 }
 
-export function convertConditionToRust(cond: string): string {
-  const { masked, strings } = maskStrings(cond);
+export function convertExpressionToRust(expr: string): string {
+  const { masked, strings } = maskStrings(expr);
   let res = masked
     .replace(/\bVerdadero\b/gi, 'true')
     .replace(/\bFalso\b/gi, 'false')
-    .replace(/\bY\b/g, ' && ')
-    .replace(/\bO\b/g, ' || ')
-    .replace(/\bNO\b/g, ' !')
+    .replace(/\s*\bY\b\s*/g, ' && ')
+    .replace(/\s*\bO\b\s*/g, ' || ')
+    .replace(/\bNO\s+/gi, '!')
+    .replace(/\bNO\b/gi, '!')
     .replace(/<>/g, '!=')
-    .replace(/\bMOD\b/gi, '%');
+    .replace(/\bMOD\b/gi, '%')
+    .replace(/\bDIV\b/gi, '/');
 
   res = transformRustPowers(res);
 
@@ -220,19 +224,8 @@ export function convertConditionToRust(cond: string): string {
   return unmaskStrings(res, strings).trim();
 }
 
-export function convertExpressionToRust(expr: string): string {
-  const { masked, strings } = maskStrings(expr);
-  let res = masked
-    .replace(/\bVerdadero\b/gi, 'true')
-    .replace(/\bFalso\b/gi, 'false')
-    .replace(/\bMOD\b/gi, '%')
-    .replace(/\bDIV\b/gi, '/')
-    .replace(/<>/g, '!=');
-
-  res = transformRustPowers(res);
-
-  res = convertArrayIndices(res);
-  return unmaskStrings(res, strings).trim();
+export function convertConditionToRust(cond: string): string {
+  return convertExpressionToRust(cond);
 }
 
 function generatePythonNestedList(dims: string[]): string {

@@ -12,13 +12,14 @@ export interface InteractiveStepResult {
   isFinished: boolean;
   error?: string;
   outputs?: string[];
+  cancelled?: boolean;
 }
 
 export type InteractiveWorkerRequest =
   | { type: 'INIT_SESSION'; sessionId: string; code: string; options?: InterpreterOptions; requestId?: string }
   | { type: 'STEP'; sessionId: string; requestId?: string }
   | { type: 'PROVIDE_INPUT'; sessionId: string; value: string; requestId?: string }
-  | { type: 'RESET_SESSION'; sessionId: string; targetCode?: string; requestId?: string }
+  | { type: 'RESET_SESSION'; sessionId: string; targetCode?: string; options?: InterpreterOptions; requestId?: string }
   | { type: 'STOP_SESSION'; sessionId: string; requestId?: string };
 
 export type InteractiveWorkerResponse =
@@ -30,6 +31,7 @@ export type InteractiveWorkerResponse =
 
 let currentSessionId: string | null = null;
 let currentCode: string = '';
+let currentOptions: InterpreterOptions | undefined = undefined;
 let currentInterp: Interpreter | null = null;
 let currentGen: Generator<TraceStep, void, unknown> | null = null;
 
@@ -41,6 +43,7 @@ self.onmessage = (e: MessageEvent<InteractiveWorkerRequest>) => {
     case 'INIT_SESSION': {
       currentSessionId = data.sessionId;
       currentCode = data.code;
+      currentOptions = data.options;
       try {
         const lexer = new Lexer(data.code);
         const tokens = lexer.tokenize();
@@ -48,7 +51,7 @@ self.onmessage = (e: MessageEvent<InteractiveWorkerRequest>) => {
         const parsedAst = parser.parse();
 
         currentInterp = new Interpreter(parsedAst, {
-          ...data.options,
+          ...currentOptions,
           isInteractive: true
         });
         currentGen = currentInterp.generateSteps();
@@ -126,6 +129,9 @@ self.onmessage = (e: MessageEvent<InteractiveWorkerRequest>) => {
     case 'RESET_SESSION': {
       // Transition atomically to the new session ID
       currentSessionId = data.sessionId;
+      if (data.options !== undefined) {
+        currentOptions = data.options;
+      }
       try {
         const codeToRun = data.targetCode !== undefined ? data.targetCode : currentCode;
         const lexer = new Lexer(codeToRun);
@@ -134,7 +140,10 @@ self.onmessage = (e: MessageEvent<InteractiveWorkerRequest>) => {
         const parsedAst = parser.parse();
 
         currentCode = codeToRun;
-        currentInterp = new Interpreter(parsedAst, { isInteractive: true });
+        currentInterp = new Interpreter(parsedAst, {
+          ...currentOptions,
+          isInteractive: true
+        });
         currentGen = currentInterp.generateSteps();
 
         self.postMessage({
@@ -158,6 +167,7 @@ self.onmessage = (e: MessageEvent<InteractiveWorkerRequest>) => {
     case 'STOP_SESSION': {
       if (currentSessionId === data.sessionId) {
         currentSessionId = null;
+        currentOptions = undefined;
         currentInterp = null;
         currentGen = null;
         self.postMessage({

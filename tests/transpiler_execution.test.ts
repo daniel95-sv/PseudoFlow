@@ -383,4 +383,40 @@ describe('Real Transpiled Code Execution & Compiler Verification (Auditoría PF-
     expect(pyRes.status).toBe(0);
     expect(pyRes.stdout).toBe('SumaFinal:15');
   }, 15000);
+
+  it('executes boolean logical operators (Y, O, NO) in assignments and conditions in Python and compiles in Rust', () => {
+    const code = `
+      Algoritmo TestLogico
+        Definir a Como Logico;
+        Definir b Como Logico;
+        Definir c Como Logico;
+        a <- Verdadero Y Falso;
+        b <- Falso O Verdadero;
+        c <- NO a;
+        Escribir "a:", a, ",b:", b, ",c:", c;
+      FinAlgoritmo
+    `;
+
+    const interpOutputs = runInterpreter(code);
+    expect(interpOutputs).toEqual(['a:Falso,b:Verdadero,c:Verdadero']);
+
+    const py = transpileToPython(code);
+    expect(py).toContain('a = True and False');
+    expect(py).toContain('b = False or True');
+    expect(py).toContain('c = not a');
+
+    const pyRes = runPython(py);
+    expect(pyRes.status).toBe(0);
+
+    const rs = transpileToRust(code);
+    expect(rs).toContain('a = true && false;');
+    expect(rs).toContain('b = false || true;');
+    expect(rs).toContain('c = !a;');
+
+    if (isRustcAvailable) {
+      const rsRes = compileAndRunRust(rs);
+      expect(rsRes.compiled).toBe(true);
+      expect(rsRes.status).toBe(0);
+    }
+  }, 20000);
 });

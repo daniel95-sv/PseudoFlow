@@ -289,8 +289,8 @@ export const IDEView: React.FC<IDEViewProps> = ({
 
     const res = await session.step(sId);
 
-    // Discard obsolete session events (e.g. user reset or changed exercise while stepping)
-    if (res.sessionId !== session.getSessionId()) {
+    // Discard obsolete or cancelled session events (e.g. user reset or changed exercise while stepping)
+    if (res.cancelled || res.sessionId !== session.getSessionId()) {
       return;
     }
 
@@ -372,7 +372,13 @@ export const IDEView: React.FC<IDEViewProps> = ({
     const session = sessionRef.current;
     const sId = currentSessionId;
     if (!session || !sId || !isWaitingInput) return;
-    await session.provideInput(sId, interactiveInput);
+    const inputRes = await session.provideInput(sId, interactiveInput);
+    if (!inputRes.success) {
+      if (inputRes.error) {
+        setRuntimeError(inputRes.error);
+      }
+      return;
+    }
     setIsWaitingInput(false);
     setConsoleLogs(prev => {
       const next = [...prev, `> ${interactiveInput === '' ? '""' : interactiveInput}`];

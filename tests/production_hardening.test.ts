@@ -362,6 +362,100 @@ describe('C. Interactive Execution Isolation & Session Safety', () => {
     expect(typeof val).toBe('string');
     expect(val.length).toBe(Interpreter.MAX_INPUT_LENGTH);
   });
+
+  it('ensures in-flight step cancelled by reset retains original sessionId and has cancelled: true', async () => {
+    const session = new InteractiveSession();
+    (session as any).isFallback = false;
+    (session as any).worker = { postMessage: () => {}, terminate: () => {} };
+    (session as any).currentSessionId = 'session_alpha';
+
+    const stepPromise = session.step('session_alpha');
+    // Reset with new session in fallback mode
+    (session as any).isFallback = true;
+    const resetRes = await session.reset('Proceso Beta\nEscribir "Beta";\nFinProceso');
+
+    const stepRes = await stepPromise;
+    expect(stepRes.sessionId).toBe('session_alpha');
+    expect(stepRes.sessionId).not.toBe(resetRes.sessionId);
+    expect(stepRes.cancelled).toBe(true);
+    expect(stepRes.done).toBe(true);
+    session.stop();
+  });
+
+  it('preserves custom InterpreterOptions across reset in InteractiveSession', async () => {
+    const session = new InteractiveSession();
+    const options = { maxOutputChars: 15, maxLineLength: 30 };
+    const startRes = await session.start('Proceso P1\nEscribir "TextoLargoQueSuperaElLimite";\nFinProceso', options);
+    expect(startRes.success).toBe(true);
+
+    // Reset session without explicit options (should preserve original options)
+    const resetRes = await session.reset('Proceso P2\nEscribir "TextoLargoQueSuperaElLimite";\nFinProceso');
+    expect(resetRes.success).toBe(true);
+
+    let stepRes = await session.step(resetRes.sessionId);
+    let iter = 0;
+    while (!stepRes.done && iter < 10) {
+      stepRes = await session.step(resetRes.sessionId);
+      iter++;
+    }
+
+    // Outputs must reflect maxOutputChars: 15
+    const combined = (stepRes.outputs || []).join('');
+    expect(combined).toContain('[Salida truncada');
+    session.stop();
+  });
+
+  it('terminates unresponsive worker on watchdog timeout and recovers cleanly', async () => {
+    const session = new InteractiveSession();
+    let terminated = false;
+    const mockWorker: any = {
+      postMessage: () => {},
+      terminate: () => { terminated = true; }
+    };
+    (session as any).isFallback = false;
+    (session as any).worker = mockWorker;
+    (session as any).currentSessionId = 'sess_hang';
+
+    const stepPromise = session.step('sess_hang');
+    const pending = (session as any).pendingStep;
+    expect(pending).toBeDefined();
+    clearTimeout(pending.timer);
+
+    // Simulate watchdog triggering
+    (session as any).flushPending('Tiempo de espera agotado (watchdog 10s): el Worker interactivo no respondió y fue reiniciado.');
+    if ((session as any).worker) {
+      (session as any).worker.terminate();
+      (session as any).worker = null;
+    }
+    (session as any).currentSessionId = null;
+
+    const stepRes = await stepPromise;
+    expect(terminated).toBe(true);
+    expect(stepRes.done).toBe(true);
+    expect(stepRes.error).toContain('watchdog');
+    expect(session.getSessionId()).toBeNull();
+  });
+
+  it('returns typed InteractiveInputResult on provideInput success and failure', async () => {
+    const session = new InteractiveSession();
+    const startRes = await session.start('Proceso Lectura\nDefinir x Como Entero;\nLeer x;\nFinProceso');
+    expect(startRes.success).toBe(true);
+
+    // Advance to Leer
+    await session.step(startRes.sessionId);
+    await session.step(startRes.sessionId);
+
+    // Provide input with correct sessionId
+    const okRes = await session.provideInput(startRes.sessionId, '42');
+    expect(okRes.success).toBe(true);
+
+    // Provide input with mismatched/obsolete sessionId
+    const badRes = await session.provideInput('obsolete_id', '100');
+    expect(badRes.success).toBe(false);
+    expect(badRes.error).toBeDefined();
+
+    session.stop();
+  });
 });
 
 describe('D. Parser Recursion & Block Hardening', () => {
@@ -429,5 +523,23 @@ describe('E. Transpiler Syntax & Semantic Conformance (Python & Rust)', () => {
     const rs = transpileToRust(code);
     expect(rs).not.toContain('^');
     expect(rs).toContain('i64::pow');
+  });
+
+  it('converts boolean logical operators (Y, O, NO) in assignments and expressions to Rust syntax', () => {
+    const code = `
+      Algoritmo TestLogicoRust
+        Definir r1 Como Logico;
+        Definir r2 Como Logico;
+        Definir r3 Como Logico;
+        r1 <- Verdadero Y Falso;
+        r2 <- Falso O Verdadero;
+        r3 <- NO Falso;
+      FinAlgoritmo
+    `;
+    const rs = transpileToRust(code);
+    expect(rs).toContain('r1 = true && false;');
+    expect(rs).toContain('r2 = false || true;');
+    expect(rs).toContain('r3 = !false;');
+    expect(rs).not.toMatch(/r\d\s*=\s*.*?\b[YO]\b/);
   });
 });
