@@ -1,0 +1,50 @@
+{
+  "name": "PseudoFlow - Editor de Pseudocódigo y Diagramas",
+  "short_name": "PseudoFlow",
+  "description": "Aprende y ejecuta pseudocódigo con diagramas de flujo interactivos, estructogramas y pruebas de escritorio paso a paso.",
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#061114",
+  "theme_color": "#0b2227",
+  "orientation": "any",
+  "lang": "es",
+  "categories": [
+    "education",
+    "developer",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
