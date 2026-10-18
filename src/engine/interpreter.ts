@@ -472,7 +472,7 @@ export class Interpreter {
 
       case 'UnaryOp': {
         const arg = this.evalExpression(expr.argument);
-        if (expr.operator === 'NO') return !Boolean(arg);
+        if (expr.operator === 'NO') return !arg;
         if (expr.operator === '-') return -arg;
         return arg;
       }

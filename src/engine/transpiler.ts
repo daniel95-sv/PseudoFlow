@@ -197,7 +197,7 @@ export function transpileToRust(pseudocode: string): string {
     }
 
     // Assignment
-    const assignMatch = line.match(/^([a-zA-Z0-9_\[\],\. ]+?)\s*(?:<-|:=|=)\s*(.+?);?$/);
+    const assignMatch = line.match(/^([a-zA-Z0-9_[\\],. ]+?)\s*(?:<-|:=|=)\s*(.+?);?$/);
     if (assignMatch && !line.startsWith('Para') && !line.startsWith('Si') && !line.startsWith('Mientras')) {
       rsLines.push('    '.repeat(indent) + `${assignMatch[1].trim()} = ${assignMatch[2].trim()};`);
       continue;

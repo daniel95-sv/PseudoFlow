@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, ArrowRight, Sun, Moon, Laptop, Smartphone, BookOpen, CheckCircle2 } from 'lucide-react';
+import { Play, ArrowRight, Sun, Moon } from 'lucide-react';
 
 interface LandingPageProps {
   onOpenIDE: () => void;

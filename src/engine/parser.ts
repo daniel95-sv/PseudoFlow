@@ -3,7 +3,6 @@ import {
   ProgramNode,
   DeclarationNode,
   DimensionNode,
-  AssignmentNode,
   ReadNode,
   WriteNode,
   IfNode,
@@ -16,7 +15,6 @@ import {
   ReturnNode,
   ClassNode,
   MethodNode,
-  CallStatementNode,
   TargetNode,
   ExpressionNode,
   Parameter,
@@ -736,7 +734,7 @@ export class Parser {
       if (this.match('DOT')) {
         const member = this.consume('IDENTIFIER', 'Se esperaba atributo en Este').value;
         if (this.match('LPAREN')) {
-          const args = this.parseArguments();
+          this.parseArguments();
           this.consume('RPAREN', 'Se esperaba ")"');
           return { type: 'MemberAccess', object: { type: 'This', member }, member };
         }
@@ -769,7 +767,7 @@ export class Parser {
       if (this.match('DOT')) {
         const member = this.consume('IDENTIFIER', 'Se esperaba el nombre del miembro').value;
         if (this.match('LPAREN')) {
-          const args = this.parseArguments();
+          this.parseArguments();
           this.consume('RPAREN', 'Se esperaba ")"');
           return {
             type: 'MemberAccess',

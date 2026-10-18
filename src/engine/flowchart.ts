@@ -55,7 +55,6 @@ export function generateFlowchart(program: ProgramNode): FlowchartData {
   });
 
   let prevNodeId = startId;
-  let prevBottomY = currentY + 40;
   currentY += 70;
 
   // Process top-level statements

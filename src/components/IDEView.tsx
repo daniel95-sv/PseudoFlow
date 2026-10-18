@@ -6,7 +6,6 @@ import {
   StepForward,
   CheckCircle,
   Home,
-  BookOpen,
   Code2,
   GitBranch,
   Table,
@@ -16,8 +15,7 @@ import {
   Sun,
   Moon,
   ChevronDown,
-  ChevronRight,
-  Sparkles
+  ChevronRight
 } from 'lucide-react';
 
 import { Lexer } from '../engine/lexer';
@@ -117,31 +115,6 @@ export const IDEView: React.FC<IDEViewProps> = ({
     }
   }, [code]);
 
-  // Step-by-step execution loop
-  useEffect(() => {
-    let timer: any = null;
-    if (isPlaying && stepGenerator && !isWaitingInput) {
-      timer = setTimeout(() => {
-        handleStepForward();
-      }, speedMs);
-    }
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [isPlaying, stepGenerator, isWaitingInput, speedMs]);
-
-  const handleStartOrPause = () => {
-    if (isPlaying) {
-      setIsPlaying(false);
-      return;
-    }
-
-    if (!interpreter || !stepGenerator) {
-      handleReset();
-    }
-    setIsPlaying(true);
-  };
-
   const handleReset = () => {
     setIsPlaying(false);
     setIsWaitingInput(false);
@@ -206,6 +179,36 @@ export const IDEView: React.FC<IDEViewProps> = ({
       setConsoleLogs(prev => [...prev, step.outputLog!]);
     }
   };
+
+  const handleStartOrPause = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+      return;
+    }
+
+    if (!interpreter || !stepGenerator) {
+      handleReset();
+    }
+    setIsPlaying(true);
+  };
+
+  const stepForwardRef = useRef<() => void>(handleStepForward);
+  useEffect(() => {
+    stepForwardRef.current = handleStepForward;
+  });
+
+  // Step-by-step execution loop
+  useEffect(() => {
+    let timer: any = null;
+    if (isPlaying && stepGenerator && !isWaitingInput) {
+      timer = setTimeout(() => {
+        stepForwardRef.current();
+      }, speedMs);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isPlaying, stepGenerator, isWaitingInput, speedMs]);
 
   const handleSendInput = (e: React.FormEvent) => {
     e.preventDefault();
