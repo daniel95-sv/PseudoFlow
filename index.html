@@ -94,7 +94,150 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Contenido estático base y semántico para rastreadores y motores de búsqueda (SEO / Bots / FCP) -->
+      <header class="pf-static-header" style="background:#0b2227;padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(45,212,191,0.2);">
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <img src="/favicon.svg" alt="PseudoFlow Logo" width="32" height="32" style="display:block;" />
+          <span style="font-family:'Outfit',sans-serif;font-weight:700;font-size:1.25rem;color:#f8fafc;letter-spacing:-0.02em;">Pseudo<span style="color:#2dd4bf;">Flow</span></span>
+        </div>
+        <nav aria-label="Navegación principal">
+          <ul style="display:flex;list-style:none;gap:1.5rem;margin:0;padding:0;font-size:0.9rem;color:#cbd5e1;">
+            <li><a href="#caracteristicas" style="color:#cbd5e1;text-decoration:none;">Características</a></li>
+            <li><a href="#curriculo" style="color:#cbd5e1;text-decoration:none;">Currículo</a></li>
+            <li><a href="#ejercicios" style="color:#cbd5e1;text-decoration:none;">Ejercicios</a></li>
+          </ul>
+        </nav>
+      </header>
+
+      <main style="max-width:1120px;margin:0 auto;padding:2.5rem 1.5rem;">
+        <section class="pf-static-hero" style="text-align:center;margin-bottom:3rem;">
+          <h1 style="font-family:'Outfit',sans-serif;font-size:2.25rem;line-height:1.2;color:#f8fafc;margin-bottom:1rem;font-weight:800;">
+            Editor de Pseudocódigo Online y Diagramas de Flujo
+          </h1>
+          <p style="font-size:1.15rem;line-height:1.6;color:#94a3b8;max-width:800px;margin:0 auto 1.5rem auto;">
+            Aprende a programar y domina algoritmos en tu navegador. PseudoFlow ejecuta pseudocódigo paso a paso con sincronización simultánea de código, ordinogramas SVG, estructogramas Nassi-Shneiderman, tablas de memoria de variables y transpilación a Python y Rust.
+          </p>
+          <div style="display:inline-flex;gap:1rem;flex-wrap:wrap;justify-content:center;">
+            <span style="background:#0284c7;color:#fff;padding:0.6rem 1.25rem;border-radius:6px;font-weight:600;font-size:0.95rem;">
+              Ejecución interactiva paso a paso
+            </span>
+            <span style="background:rgba(45,212,191,0.12);color:#2dd4bf;border:1px solid rgba(45,212,191,0.3);padding:0.6rem 1.25rem;border-radius:6px;font-weight:600;font-size:0.95rem;">
+              95 ejercicios formativos
+            </span>
+          </div>
+        </section>
+
+        <section id="caracteristicas" style="margin-bottom:3rem;">
+          <h2 style="font-family:'Outfit',sans-serif;font-size:1.6rem;color:#f8fafc;margin-bottom:1.5rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:0.5rem;">
+            Características Principales de PseudoFlow
+          </h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;">
+            <article style="background:#091518;padding:1.25rem;border-radius:8px;border:1px solid rgba(45,212,191,0.15);">
+              <h3 style="color:#2dd4bf;margin-top:0;font-size:1.15rem;">Diagramas de Flujo SVG en Vivo</h3>
+              <p style="color:#94a3b8;font-size:0.92rem;line-height:1.5;margin-bottom:0;">
+                Genera automáticamente diagramas de flujo normalizados a partir del pseudocódigo mientras escribes, con resaltado visual del nodo en ejecución.
+              </p>
+            </article>
+            <article style="background:#091518;padding:1.25rem;border-radius:8px;border:1px solid rgba(45,212,191,0.15);">
+              <h3 style="color:#2dd4bf;margin-top:0;font-size:1.15rem;">Estructogramas Nassi-Shneiderman</h3>
+              <p style="color:#94a3b8;font-size:0.92rem;line-height:1.5;margin-bottom:0;">
+                Visualiza tus estructuras de control en bloques estructurados sin flechas, ideal para comprender diseño algorítmico estructurado.
+              </p>
+            </article>
+            <article style="background:#091518;padding:1.25rem;border-radius:8px;border:1px solid rgba(45,212,191,0.15);">
+              <h3 style="color:#2dd4bf;margin-top:0;font-size:1.15rem;">Prueba de Escritorio y Traza</h3>
+              <p style="color:#94a3b8;font-size:0.92rem;line-height:1.5;margin-bottom:0;">
+                Inspecciona cada sentencia paso a paso, monitorizando los valores de las variables en memoria, tipos de datos y salidas por consola.
+              </p>
+            </article>
+            <article style="background:#091518;padding:1.25rem;border-radius:8px;border:1px solid rgba(45,212,191,0.15);">
+              <h3 style="color:#2dd4bf;margin-top:0;font-size:1.15rem;">Transpilador a Python y Rust</h3>
+              <p style="color:#94a3b8;font-size:0.92rem;line-height:1.5;margin-bottom:0;">
+                Convierte tus algoritmos a código real ejecutable en Python 3 o compila en Rust para entender la transición a lenguajes profesionales.
+              </p>
+            </article>
+            <article style="background:#091518;padding:1.25rem;border-radius:8px;border:1px solid rgba(45,212,191,0.15);">
+              <h3 style="color:#2dd4bf;margin-top:0;font-size:1.15rem;">Programación Orientada a Objetos (POO)</h3>
+              <p style="color:#94a3b8;font-size:0.92rem;line-height:1.5;margin-bottom:0;">
+                Diseña y ejecuta Clases, Objetos, Métodos, Encapsulamiento (Público/Privado) y Herencia con soporte para diagramas de clases UML.
+              </p>
+            </article>
+            <article style="background:#091518;padding:1.25rem;border-radius:8px;border:1px solid rgba(45,212,191,0.15);">
+              <h3 style="color:#2dd4bf;margin-top:0;font-size:1.15rem;">95 Ejercicios Autoevaluados</h3>
+              <p style="color:#94a3b8;font-size:0.92rem;line-height:1.5;margin-bottom:0;">
+                Valida tu solución de forma instantánea y aislada mediante Web Workers y pruebas formativas automatizadas con múltiples casos de prueba.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section id="curriculo" style="margin-bottom:3rem;">
+          <h2 style="font-family:'Outfit',sans-serif;font-size:1.6rem;color:#f8fafc;margin-bottom:1rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:0.5rem;">
+            Ruta de Aprendizaje y Currículo de 15 Módulos
+          </h2>
+          <p style="color:#94a3b8;margin-bottom:1.5rem;line-height:1.5;">
+            PseudoFlow ofrece un itinerario progresivo y riguroso diseñado para estudiantes de ingeniería, informática y programación autodidacta:
+          </p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.5rem;">
+            <div style="background:#0b191c;padding:1.25rem;border-radius:8px;border-left:4px solid #38bdf8;">
+              <h3 style="color:#f8fafc;font-size:1.1rem;margin-top:0;">Tramo 1: Fundamentos y Secuencia</h3>
+              <ul style="color:#94a3b8;font-size:0.88rem;line-height:1.7;padding-left:1.2rem;margin-bottom:0;">
+                <li><strong>CON-A1:</strong> Introducción a algoritmos y entorno de ejecución.</li>
+                <li><strong>CON-A2:</strong> Variables, asignación y tipos de datos primitivos.</li>
+                <li><strong>CON-A3:</strong> Entrada y salida por consola (Leer / Escribir).</li>
+                <li><strong>CON-A4:</strong> Operadores aritméticos, precedencia y expresiones.</li>
+                <li><strong>CON-A5:</strong> Operadores relacionales, lógicos y expresiones booleanas.</li>
+              </ul>
+            </div>
+            <div style="background:#0b191c;padding:1.25rem;border-radius:8px;border-left:4px solid #2dd4bf;">
+              <h3 style="color:#f8fafc;font-size:1.1rem;margin-top:0;">Tramo 2: Decisiones y Repetición</h3>
+              <ul style="color:#94a3b8;font-size:0.88rem;line-height:1.7;padding-left:1.2rem;margin-bottom:0;">
+                <li><strong>CON-B1:</strong> Estructuras condicionales simples y dobles (Si / Sino / FinSi).</li>
+                <li><strong>CON-B2:</strong> Condicionales anidados y selección múltiple (Segun / Hacer).</li>
+                <li><strong>CON-B3:</strong> Bucles con precondición (Mientras / Hacer / FinMientras).</li>
+                <li><strong>CON-B4:</strong> Bucles con postcondición (Repetir / Hasta Que).</li>
+                <li><strong>CON-B5:</strong> Bucles con contador determinado (Para / Hasta / Con Paso).</li>
+              </ul>
+            </div>
+            <div style="background:#0b191c;padding:1.25rem;border-radius:8px;border-left:4px solid #a78bfa;">
+              <h3 style="color:#f8fafc;font-size:1.1rem;margin-top:0;">Tramo 3: Modularidad, Arreglos y POO</h3>
+              <ul style="color:#94a3b8;font-size:0.88rem;line-height:1.7;padding-left:1.2rem;margin-bottom:0;">
+                <li><strong>CON-C1:</strong> Subprocesos, funciones y paso por valor y referencia.</li>
+                <li><strong>CON-C2:</strong> Arreglos unidimensionales (vectores o listas).</li>
+                <li><strong>CON-C3:</strong> Arreglos multidimensionales (matrices y tablas).</li>
+                <li><strong>CON-C4:</strong> Clases, objetos, atributos y métodos de instancia.</li>
+                <li><strong>CON-C5:</strong> Herencia, constructores, métodos y polimorfismo.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="ejercicios" style="background:#091518;padding:1.5rem;border-radius:8px;border:1px solid rgba(45,212,191,0.2);">
+          <h2 style="font-family:'Outfit',sans-serif;font-size:1.35rem;color:#f8fafc;margin-top:0;margin-bottom:0.75rem;">
+            Ejecución Rápida y Acceso en Línea
+          </h2>
+          <p style="color:#94a3b8;font-size:0.95rem;line-height:1.6;margin-bottom:0;">
+            PseudoFlow es una aplicación web progresiva (PWA) de alto rendimiento que funciona completamente en tu navegador sin necesidad de servidores backend o instalación previa. Compatible con dispositivos móviles (Android / iOS) y ordenadores de escritorio.
+          </p>
+        </section>
+      </main>
+
+      <footer style="background:#050c0e;border-top:1px solid rgba(255,255,255,0.06);padding:2rem 1.5rem;text-align:center;font-size:0.85rem;color:#64748b;">
+        <p style="margin:0 0 0.5rem 0;">PseudoFlow &copy; 2026 — Plataforma educativa abierta para el aprendizaje de algoritmia y pseudocódigo.</p>
+        <p style="margin:0;">Diseñado para la enseñanza moderna de ciencias de la computación.</p>
+      </footer>
+    </div>
+
+    <noscript>
+      <div style="background:#1e293b;color:#f8fafc;padding:1.5rem;text-align:center;border-bottom:2px solid #2dd4bf;font-family:sans-serif;">
+        <p style="font-size:1.1rem;margin:0 0 0.5rem 0;font-weight:700;">Se requiere JavaScript para la experiencia interactiva</p>
+        <p style="font-size:0.95rem;margin:0;color:#94a3b8;">
+          PseudoFlow utiliza JavaScript para la ejecución paso a paso de pseudocódigo, la animación de diagramas de flujo SVG y la validación en vivo de ejercicios. Para interactuar con el editor y los retos, por favor activa JavaScript en tu navegador.
+        </p>
+      </div>
+    </noscript>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
