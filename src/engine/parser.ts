@@ -24,6 +24,8 @@ import {
 export class Parser {
   private tokens: Token[];
   private current: number = 0;
+  public static readonly MAX_EXPR_DEPTH = 100;
+  private exprDepth: number = 0;
 
   constructor(tokens: Token[]) {
     // Filter out comments
@@ -632,7 +634,15 @@ export class Parser {
 
   // Expressions (Precedence climbing)
   private parseExpression(): ExpressionNode {
-    return this.parseOr();
+    this.exprDepth++;
+    if (this.exprDepth > Parser.MAX_EXPR_DEPTH) {
+      throw new Error(`Profundidad máxima de expresión superada (${Parser.MAX_EXPR_DEPTH}). Expresión demasiado anidada.`);
+    }
+    try {
+      return this.parseOr();
+    } finally {
+      this.exprDepth--;
+    }
   }
 
   private parseOr(): ExpressionNode {

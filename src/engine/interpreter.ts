@@ -21,6 +21,15 @@ import {
   TraceStep
 } from './types';
 
+export interface InterpreterOptions {
+  maxSteps?: number;
+  maxCallStackDepth?: number;
+  maxArrayElements?: number;
+  maxSystemTotalArrayElements?: number;
+  maxExecutionTimeMs?: number;
+  isInteractive?: boolean;
+}
+
 export class Interpreter {
   private program: ProgramNode;
   private classes: Map<string, ClassNode> = new Map();
@@ -37,6 +46,7 @@ export class Interpreter {
   public static readonly MAX_STEPS = 50_000;
   public static readonly MAX_CALL_STACK_DEPTH = 100;
   public static readonly MAX_ARRAY_TOTAL_ELEMENTS = 100_000;
+  public static readonly MAX_SYSTEM_TOTAL_ARRAY_ELEMENTS = 250_000;
   public static readonly MAX_OUTPUT_LINES = 2_000;
   public static readonly MAX_TRACE_STEPS_STORED = 2_000;
   public static readonly MAX_ARRAY_FORMAT_ELEMENTS = 8;
@@ -45,7 +55,10 @@ export class Interpreter {
   private maxSteps: number = Interpreter.MAX_STEPS;
   private maxCallStackDepth: number = Interpreter.MAX_CALL_STACK_DEPTH;
   private maxArrayElements: number = Interpreter.MAX_ARRAY_TOTAL_ELEMENTS;
+  private maxSystemTotalArrayElements: number = Interpreter.MAX_SYSTEM_TOTAL_ARRAY_ELEMENTS;
   private maxExecutionTimeMs: number = Interpreter.DEFAULT_TIMEOUT_MS;
+  public isInteractive: boolean = false;
+  private totalAllocatedArrayElements: number = 0;
   private startTime: number = 0;
 
   private objectCounter: number = 0;
@@ -59,12 +72,14 @@ export class Interpreter {
   public isFinished: boolean = false;
   public error?: string;
 
-  constructor(program: ProgramNode, options?: { maxSteps?: number; maxCallStackDepth?: number; maxArrayElements?: number; maxExecutionTimeMs?: number }) {
+  constructor(program: ProgramNode, options?: InterpreterOptions) {
     this.program = program;
     if (options?.maxSteps !== undefined) this.maxSteps = options.maxSteps;
     if (options?.maxCallStackDepth !== undefined) this.maxCallStackDepth = options.maxCallStackDepth;
     if (options?.maxArrayElements !== undefined) this.maxArrayElements = options.maxArrayElements;
+    if (options?.maxSystemTotalArrayElements !== undefined) this.maxSystemTotalArrayElements = options.maxSystemTotalArrayElements;
     if (options?.maxExecutionTimeMs !== undefined) this.maxExecutionTimeMs = options.maxExecutionTimeMs;
+    if (options?.isInteractive !== undefined) this.isInteractive = options.isInteractive;
 
     // Register classes and subprograms
     for (const cls of program.classes) {
@@ -78,6 +93,24 @@ export class Interpreter {
       name: program.name,
       variables: new Map()
     });
+  }
+
+  public reset(): void {
+    this.callStack = [{
+      name: this.program.name,
+      variables: new Map()
+    }];
+    this.objectCounter = 0;
+    this.inputs = [];
+    this.outputs = [];
+    this.steps = [];
+    this.stepNumber = 0;
+    this.totalAllocatedArrayElements = 0;
+    this.isWaitingForInput = false;
+    this.inputTarget = undefined;
+    this.isFinished = false;
+    this.error = undefined;
+    this.startTime = 0;
   }
 
   public setInputs(inputs: string[]): void {
@@ -132,6 +165,8 @@ export class Interpreter {
   }
 
   public runAll(inputs: string[] = [], throwOnError: boolean = false, maxTimeMs?: number): { outputs: string[]; steps: TraceStep[]; error?: string } {
+    this.reset();
+    this.isInteractive = false;
     if (maxTimeMs !== undefined) this.maxExecutionTimeMs = maxTimeMs;
     this.startTime = Date.now();
     this.setInputs(inputs);
@@ -168,7 +203,8 @@ export class Interpreter {
       const lineMsg = line ? ` (en línea ${line})` : '';
       throw new Error(`Límite de ejecución alcanzado (${this.maxSteps} pasos)${lineMsg}. Posible bucle infinito o recursión excesiva.`);
     }
-    if (this.maxExecutionTimeMs > 0 && (Date.now() - this.startTime > this.maxExecutionTimeMs)) {
+    // Interactive debugging / stepping must not be interrupted by wall-clock timeout
+    if (!this.isInteractive && this.maxExecutionTimeMs > 0 && (Date.now() - this.startTime > this.maxExecutionTimeMs)) {
       const lineMsg = line ? ` (en línea ${line})` : '';
       throw new Error(`Tiempo máximo de ejecución excedido (${this.maxExecutionTimeMs} ms)${lineMsg}. Posible bucle infinito.`);
     }
@@ -213,19 +249,22 @@ export class Interpreter {
         const sizes: number[] = [];
         for (const sExpr of dim.sizes) {
           const val = this.evalExpression(sExpr);
-          if (typeof val !== 'number' || !Number.isFinite(val) || isNaN(val)) {
-            throw new Error(`La dimensión para "${dim.name}" debe ser un número entero válido (línea ${dim.line})`);
+          if (typeof val !== 'number' || !Number.isFinite(val) || isNaN(val) || !Number.isInteger(val)) {
+            throw new Error(`La dimensión para "${dim.name}" debe ser un número entero válido (recibido ${val} en línea ${dim.line})`);
           }
-          const s = Math.floor(val);
-          if (s <= 0) {
-            throw new Error(`El tamaño de la dimensión para "${dim.name}" debe ser mayor a 0 (recibido ${s} en línea ${dim.line})`);
+          if (val <= 0) {
+            throw new Error(`El tamaño de la dimensión para "${dim.name}" debe ser mayor a 0 (recibido ${val} en línea ${dim.line})`);
           }
-          sizes.push(s);
+          sizes.push(val);
         }
         const totalElements = sizes.reduce((acc, sz) => acc * sz, 1);
         if (totalElements > this.maxArrayElements) {
           throw new Error(`El arreglo "${dim.name}" solicita ${totalElements} elementos, superando el límite de ${this.maxArrayElements} elementos permitidos.`);
         }
+        if (this.totalAllocatedArrayElements + totalElements > this.maxSystemTotalArrayElements) {
+          throw new Error(`La cuota total de memoria para arreglos ha sido superada (${this.totalAllocatedArrayElements + totalElements} > ${this.maxSystemTotalArrayElements} elementos).`);
+        }
+        this.totalAllocatedArrayElements += totalElements;
         const arr = this.createArray(sizes, this.defaultValueFor(dim.dataType));
         this.assignValue(dim.name, arr);
         const step: TraceStep = {

@@ -28,7 +28,7 @@ export const CodeExportView: React.FC<CodeExportViewProps> = ({ code }) => {
       <div
         style={{
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           gap: '0.5rem',
           padding: '0.45rem 0.75rem',
           background: 'var(--pl-sunken)',
@@ -36,12 +36,13 @@ export const CodeExportView: React.FC<CodeExportViewProps> = ({ code }) => {
           borderRadius: '6px',
           marginBottom: '0.75rem',
           fontSize: '0.78rem',
-          color: 'var(--pl-ink-2)'
+          color: 'var(--pl-ink-2)',
+          lineHeight: 1.4
         }}
       >
-        <Info size={14} style={{ color: 'var(--pl-brand)', flexShrink: 0 }} />
+        <Info size={14} style={{ color: 'var(--pl-brand)', flexShrink: 0, marginTop: '2px' }} />
         <span>
-          <strong>Proyección didáctica experimental:</strong> la transpilación refleja correspondencias sintácticas directas en Python 3 y Rust para facilitar la transición a lenguajes industriales.
+          <strong>Proyección didáctica experimental:</strong> traducción sintáctica con fines formativos (estructuras de control, E/S básica, bucles y arreglos). Arreglos complejos o tipado avanzado en Rust pueden requerir ajustes manuales en el compilador de destino.
         </span>
       </div>
 

@@ -6,14 +6,25 @@ export class Lexer {
   private line: number = 1;
   private col: number = 1;
 
+  public static readonly MAX_SOURCE_LENGTH = 100_000;
+  public static readonly MAX_TOKENS = 25_000;
+
   constructor(input: string) {
     this.input = input;
   }
 
   public tokenize(): Token[] {
+    if (this.input.length > Lexer.MAX_SOURCE_LENGTH) {
+      throw new Error(`El código fuente excede el tamaño máximo permitido (${Lexer.MAX_SOURCE_LENGTH.toLocaleString()} caracteres).`);
+    }
+
     const tokens: Token[] = [];
 
     while (this.pos < this.input.length) {
+      if (tokens.length >= Lexer.MAX_TOKENS) {
+        throw new Error(`El programa supera el límite máximo de ${Lexer.MAX_TOKENS.toLocaleString()} tokens analizados.`);
+      }
+
       this.skipWhitespace();
       if (this.pos >= this.input.length) break;
 

@@ -3,6 +3,7 @@ import { Lexer } from '../src/engine/lexer';
 import { Parser } from '../src/engine/parser';
 import { Interpreter } from '../src/engine/interpreter';
 import { transpileToPython, transpileToRust } from '../src/engine/transpiler';
+import { safeStorageGet, safeStorageSet, safeStorageRemove } from '../src/engine/storage';
 
 describe('Lexer Hardening (Auditoría P2)', () => {
   it('tokenizes standard pseudocode statements correctly', () => {
@@ -68,7 +69,7 @@ describe('Transpiler Operator Integrity (Auditoría P1/P2)', () => {
   it('formats multiple arguments in Rust println with matching {} placeholders', () => {
     const code = 'Escribir "Resultado:", x, "puntos";';
     const rust = transpileToRust(code);
-    expect(rust).toContain('println!("{} {} {}",');
+    expect(rust).toContain('println!("{}{}{}",');
   });
 
   it('transpiles Leer to type-aware input functions in Python based on declarations (Auditoría P1)', () => {
@@ -626,6 +627,150 @@ describe('Subprograms, Pass-by-Reference & OOP Support (Auditoría Criterios Ace
     const duration = Date.now() - start;
     expect(res.error).toBeUndefined();
     expect(duration).toBeLessThan(1500);
+  });
+});
+
+describe('Auditoría v3 — Correcciones P1, P2 y P3', () => {
+  it('P1: does NOT throw wall-clock timeout in interactive step-by-step mode after long pause', async () => {
+    const code = `
+      Proceso PasoAPaso
+        Definir a Como Entero;
+        Definir b Como Entero;
+        a <- 10;
+        b <- 20;
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    // Configure an ultra-tight 15ms timeout, but in interactive mode
+    const interp = new Interpreter(ast, { isInteractive: true, maxExecutionTimeMs: 15 });
+    const gen = interp.generateSteps();
+
+    // Step 1
+    const step1 = gen.next();
+    expect(step1.done).toBe(false);
+
+    // Simulate user pausing to read trace for 35ms (> 15ms timeout)
+    await new Promise(resolve => setTimeout(resolve, 35));
+
+    // Step 2 after pause — must proceed normally without false timeout error
+    const step2 = gen.next();
+    expect(step2.done).toBe(false);
+    expect(interp.error).toBeUndefined();
+
+    // Finish execution
+    let done = false;
+    while (!done) {
+      const res = gen.next();
+      if (res.done) done = true;
+    }
+    expect(interp.error).toBeUndefined();
+    expect(interp.getVariable('b')).toBe(20);
+  });
+
+  it('P1: enforces execution timeout during non-interactive batch runAll on runaway loop', () => {
+    const code = `
+      Proceso BucleInfinito
+        Definir x Como Entero;
+        x <- 1;
+        Mientras Verdadero Hacer
+          x <- x + 1;
+        FinMientras
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast, { maxExecutionTimeMs: 50 });
+    const res = interp.runAll([], false);
+    expect(res.error).toMatch(/Tiempo (l\u00EDmite|m\u00E1ximo) de ejecuci\u00F3n (superado|excedido)/i);
+  });
+
+  it('P2: rejects non-integer/decimal array dimensions explicitly without truncation', () => {
+    const code = `
+      Proceso DimensionDecimal
+        Dimension arr[4.5];
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    const res = interp.runAll();
+    expect(res.error).toMatch(/número entero válido/);
+  });
+
+  it('P2: enforces global aggregate memory quota across multiple declared arrays', () => {
+    const code = `
+      Proceso MultiplesArreglos
+        Dimension a[90000];
+        Dimension b[90000];
+        Dimension c[90000];
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    // Default maxSystemTotalArrayElements is 250,000 (90,000 * 3 = 270,000 > 250,000)
+    const interp = new Interpreter(ast, { maxArrayElements: 100000 });
+    const res = interp.runAll();
+    expect(res.error).toMatch(/cuota total de memoria para arreglos ha sido superada/);
+  });
+
+  it('P2: supports running runAll multiple times consecutively on the same Interpreter instance (idempotent reset)', () => {
+    const code = `
+      Proceso ContadorSimple
+        Definir cont Como Entero;
+        cont <- 5;
+        Escribir "Total:", cont;
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+
+    const firstRun = interp.runAll();
+    expect(firstRun.outputs).toEqual(['Total:5']);
+    expect(firstRun.error).toBeUndefined();
+
+    // Second run on the same instance
+    const secondRun = interp.runAll();
+    expect(secondRun.outputs).toEqual(['Total:5']);
+    expect(secondRun.error).toBeUndefined();
+    expect(secondRun.outputs.length).toBe(1);
+  });
+
+  it('P2: transpiles Python Escribir with multiple arguments using sep="" to match interpreter', () => {
+    const code = 'Escribir "Valor=", 42;';
+    const py = transpileToPython(code);
+    expect(py).toContain('print("Valor=", 42, sep="")');
+  });
+
+  it('P2: transpiles Rust loops with Con Paso step and descending ranges correctly', () => {
+    const codeAsc = 'Para i <- 1 Hasta 10 Con Paso 2 Hacer\n  Escribir i;\nFinPara';
+    const rustAsc = transpileToRust(codeAsc);
+    expect(rustAsc).toContain('(1..=10).step_by(2)');
+
+    const codeDesc = 'Para i <- 10 Hasta 1 Con Paso -1 Hacer\n  Escribir i;\nFinPara';
+    const rustDesc = transpileToRust(codeDesc);
+    expect(rustDesc).toContain('(1..=10).rev()');
+  });
+
+  it('P1: throws lexical error on huge source inputs exceeding MAX_SOURCE_LENGTH', () => {
+    const hugeInput = 'x <- 1;\n'.repeat(15000); // ~120KB
+    const lexer = new Lexer(hugeInput);
+    expect(() => lexer.tokenize()).toThrowError(/excede el tamaño máximo permitido/);
+  });
+
+  it('P1: throws parser error on expressions exceeding maximum recursion depth', () => {
+    // Nest 120 layers of parentheses: "((((...1...))))"
+    let deepExpr = '1';
+    for (let i = 0; i < 110; i++) {
+      deepExpr = `(${deepExpr} + 1)`;
+    }
+    const code = `Proceso Profundo\n  x <- ${deepExpr};\nFinProceso`;
+    const tokens = new Lexer(code).tokenize();
+    const parser = new Parser(tokens);
+    expect(() => parser.parse()).toThrowError(/Profundidad máxima de expresión superada/);
+  });
+
+  it('P2: safeStorage operations provide robust read/write/remove with memory fallback', () => {
+    safeStorageSet('test-key-auditoria', 'valor_guardado');
+    expect(safeStorageGet('test-key-auditoria', '')).toBe('valor_guardado');
+    safeStorageRemove('test-key-auditoria');
+    expect(safeStorageGet('test-key-auditoria', 'predeterminado')).toBe('predeterminado');
   });
 });
 

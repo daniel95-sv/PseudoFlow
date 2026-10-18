@@ -1,6 +1,11 @@
 /**
  * Transpilador experimental de Pseudocódigo a Python 3 y Rust
- * Proporciona correspondencias sintácticas idiomáticas y seguras para fines didácticos.
+ * Proporciona proyecciones sintácticas idiomáticas con fines didácticos.
+ *
+ * Alcance y limitaciones:
+ * - Diseñado para algoritmos educativos (declaraciones, lectura/escritura, condicionales, bucles, arreglos básicos 1D/2D).
+ * - En Rust, arreglos >2D o mutabilidad compleja pueden requerir estructuras manuales adicionales.
+ * - No sustituye a un compilador de producción; valida siempre el código generado con el compilador nativo de destino.
  */
 
 function splitArgs(raw: string): string[] {
@@ -132,8 +137,13 @@ export function transpileToPython(pseudocode: string): string {
     // Escribir / write
     const writeMatch = line.match(/^(?:Escribir|write)\s+(.+?);?$/i);
     if (writeMatch) {
-      const args = writeMatch[1].replace(/;+$/, '');
-      pyLines.push('    '.repeat(indent) + `print(${args})`);
+      const rawArgs = writeMatch[1].replace(/;+$/, '').trim();
+      const parts = splitArgs(rawArgs);
+      if (parts.length > 1) {
+        pyLines.push('    '.repeat(indent) + `print(${rawArgs}, sep="")`);
+      } else {
+        pyLines.push('    '.repeat(indent) + `print(${rawArgs})`);
+      }
       continue;
     }
 
@@ -181,7 +191,12 @@ export function transpileToPython(pseudocode: string): string {
       const start = forMatch[2];
       const end = forMatch[3];
       const step = forMatch[4] || '1';
-      pyLines.push('    '.repeat(indent) + `for ${v} in range(${start}, (${end}) + 1, ${step}):`);
+      const stepNum = Number(step);
+      if (!isNaN(stepNum) && stepNum < 0) {
+        pyLines.push('    '.repeat(indent) + `for ${v} in range(${start}, (${end}) - 1, ${step}):`);
+      } else {
+        pyLines.push('    '.repeat(indent) + `for ${v} in range(${start}, (${end}) + 1, ${step}):`);
+      }
       indent++;
       continue;
     }
@@ -314,7 +329,7 @@ export function transpileToRust(pseudocode: string): string {
       if (parts.length === 1) {
         rsLines.push('    '.repeat(indent) + `println!("{}", ${parts[0]});`);
       } else {
-        const fmt = parts.map(() => '{}').join(' ');
+        const fmt = parts.map(() => '{}').join('');
         rsLines.push('    '.repeat(indent) + `println!("${fmt}", ${parts.join(', ')});`);
       }
       continue;
@@ -338,7 +353,26 @@ export function transpileToRust(pseudocode: string): string {
 
     const forMatch = line.match(/^(?:Para|for)\s+([a-zA-Z0-9_]+)\s*(?:<-|:=|=)\s*(.+?)\s+(?:Hasta|to)\s+(.+?)(?:\s+(?:Con Paso|step)\s+(.+?))?\s+(?:Hacer|do)/i);
     if (forMatch) {
-      rsLines.push('    '.repeat(indent) + `for ${forMatch[1]} in ${forMatch[2]}..=${forMatch[3]} {`);
+      const v = forMatch[1];
+      const start = forMatch[2].trim();
+      const end = forMatch[3].trim();
+      const stepRaw = forMatch[4]?.trim();
+
+      if (stepRaw) {
+        const stepNum = Number(stepRaw);
+        if (!isNaN(stepNum) && stepNum < 0) {
+          const absStep = Math.abs(stepNum);
+          if (absStep === 1) {
+            rsLines.push('    '.repeat(indent) + `for ${v} in (${end}..=${start}).rev() {`);
+          } else {
+            rsLines.push('    '.repeat(indent) + `for ${v} in (${end}..=${start}).rev().step_by(${absStep}) {`);
+          }
+        } else {
+          rsLines.push('    '.repeat(indent) + `for ${v} in (${start}..=${end}).step_by(${stepRaw}) {`);
+        }
+      } else {
+        rsLines.push('    '.repeat(indent) + `for ${v} in ${start}..=${end} {`);
+      }
       indent++;
       continue;
     }

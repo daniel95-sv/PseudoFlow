@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Play,
   Pause,
@@ -20,15 +20,24 @@ import {
   Upload,
   AlertCircle,
   Trash2,
-  BookOpen
+  BookOpen,
+  Columns2,
+  Columns3,
+  Columns4,
+  PanelLeft,
+  X,
+  Settings,
+  WrapText,
+  ArrowLeftToLine
 } from 'lucide-react';
 
 import { Lexer } from '../engine/lexer';
 import { Parser } from '../engine/parser';
 import { Interpreter } from '../engine/interpreter';
-import { generateFlowchart, FlowchartData } from '../engine/flowchart';
+import { generateFlowchart } from '../engine/flowchart';
 import { generateStructogram, StructogramBlock } from '../engine/structogram';
-import { ProgramNode, TraceStep } from '../engine/types';
+import { TraceStep } from '../engine/types';
+import { safeStorageGet, safeStorageSet, safeStorageRemove } from '../engine/storage';
 
 import { FlowchartView } from './FlowchartView';
 import { StructogramView } from './StructogramView';
@@ -56,30 +65,9 @@ const DEFAULT_CODE = `Proceso DemostracionGuiada
 FinProceso
 `;
 
-// Safe localStorage wrappers to prevent crashes if storage is blocked or full
-function safeStorageGet(key: string, fallback: string): string {
-  try {
-    return localStorage.getItem(key) || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function safeStorageSet(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Graceful fallback when storage is restricted
-  }
-}
-
-function safeStorageRemove(key: string): void {
-  try {
-    localStorage.removeItem(key);
-  } catch {
-    // Graceful fallback
-  }
-}
+// UI History limits to prevent unbounded React state growth during lengthy sessions
+const MAX_UI_TRACE_STEPS = 1000;
+const MAX_UI_CONSOLE_LOGS = 1000;
 
 interface IDEViewProps {
   onBackToHome: () => void;
@@ -98,19 +86,72 @@ export const IDEView: React.FC<IDEViewProps> = ({
 }) => {
   const isEs = lang === 'es';
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Responsive layout modes
+  const [desktopLayout, setDesktopLayout] = useState<'2-col' | '3-col' | '4-col'>(() => {
+    const saved = safeStorageGet('pseudoflow-desktop-layout', '3-col');
+    if (saved === '2-col' || saved === '3-col' || saved === '4-col') return saved;
+    return '3-col';
+  });
+  const [mobileTab, setMobileTab] = useState<'code' | 'surfaces' | 'curriculum'>('code');
+  const [isSidebarDrawerOpen, setIsSidebarDrawerOpen] = useState<boolean>(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [isWordWrap, setIsWordWrap] = useState<boolean>(true);
+  const [isConsoleCollapsedMobile, setIsConsoleCollapsedMobile] = useState<boolean>(false);
+  const [isStatementCollapsedMobile, setIsStatementCollapsedMobile] = useState<boolean>(false);
+
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 1024;
+  });
+
+  // Track window resizing for smooth breakpoint switching
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleSetDesktopLayout = (layout: '2-col' | '3-col' | '4-col') => {
+    setDesktopLayout(layout);
+    safeStorageSet('pseudoflow-desktop-layout', layout);
+    if (layout !== '2-col') {
+      setIsSidebarDrawerOpen(false);
+    }
+  };
 
   // Code state with resilient localStorage draft support
   const [code, setCode] = useState<string>(() => {
     return safeStorageGet('pseudoflow-draft-code', DEFAULT_CODE);
   });
   const [activeLine, setActiveLine] = useState<number | undefined>(undefined);
-
-  // AST and diagram states
-  const [ast, setAst] = useState<ProgramNode | null>(null);
-  const [flowchartData, setFlowchartData] = useState<FlowchartData | null>(null);
-  const [structogramBlocks, setStructogramBlocks] = useState<StructogramBlock[]>([]);
-  const [syntaxError, setSyntaxError] = useState<string | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
+
+  // AST and diagram states automatically derived from code (clean React 19 pattern)
+  const { ast, flowchartData, structogramBlocks, syntaxError } = useMemo(() => {
+    try {
+      const lexer = new Lexer(code);
+      const tokens = lexer.tokenize();
+      const parser = new Parser(tokens);
+      const parsedAst = parser.parse();
+      return {
+        ast: parsedAst,
+        flowchartData: generateFlowchart(parsedAst),
+        structogramBlocks: generateStructogram(parsedAst),
+        syntaxError: null
+      };
+    } catch (e: any) {
+      return {
+        ast: null,
+        flowchartData: null,
+        structogramBlocks: [] as StructogramBlock[],
+        syntaxError: (e.message || String(e)) as string
+      };
+    }
+  }, [code]);
 
   // Execution state
   const [interpreter, setInterpreter] = useState<Interpreter | null>(null);
@@ -133,31 +174,10 @@ export const IDEView: React.FC<IDEViewProps> = ({
   });
   const [testResults, setTestResults] = useState<{ passed: boolean; details: any[] } | null>(null);
 
-  // Parse code for diagrams whenever code changes
-  useEffect(() => {
-    try {
-      const lexer = new Lexer(code);
-      const tokens = lexer.tokenize();
-      const parser = new Parser(tokens);
-      const parsedAst = parser.parse();
-      setAst(parsedAst);
-      setFlowchartData(generateFlowchart(parsedAst));
-      setStructogramBlocks(generateStructogram(parsedAst));
-      setSyntaxError(null);
-    } catch (e: any) {
-      setSyntaxError(e.message || String(e));
-      setAst(null);
-      setFlowchartData(null);
-      setStructogramBlocks([]);
-    }
-  }, [code]);
-
   /**
    * Reset execution explicitly with the provided code string
-   * Prevents stale React closures when selecting exercises or examples
    */
   const resetExecution = (targetCode?: string) => {
-    const codeToRun = targetCode !== undefined ? targetCode : code;
     setIsPlaying(false);
     setIsWaitingInput(false);
     setConsoleLogs([]);
@@ -168,23 +188,16 @@ export const IDEView: React.FC<IDEViewProps> = ({
     setRuntimeError(null);
 
     try {
+      const codeToRun = targetCode !== undefined ? targetCode : code;
       const lexer = new Lexer(codeToRun);
       const tokens = lexer.tokenize();
       const parser = new Parser(tokens);
       const parsedAst = parser.parse();
-      setAst(parsedAst);
-      setFlowchartData(generateFlowchart(parsedAst));
-      setStructogramBlocks(generateStructogram(parsedAst));
-      setSyntaxError(null);
 
-      const newInterp = new Interpreter(parsedAst);
+      const newInterp = new Interpreter(parsedAst, { isInteractive: true });
       setInterpreter(newInterp);
       setStepGenerator(newInterp.generateSteps());
-    } catch (e: any) {
-      setSyntaxError(e.message || String(e));
-      setAst(null);
-      setFlowchartData(null);
-      setStructogramBlocks([]);
+    } catch {
       setInterpreter(null);
       setStepGenerator(null);
     }
@@ -200,14 +213,12 @@ export const IDEView: React.FC<IDEViewProps> = ({
         const tokens = lexer.tokenize();
         const parser = new Parser(tokens);
         const parsedAst = parser.parse();
-        interp = new Interpreter(parsedAst);
+        interp = new Interpreter(parsedAst, { isInteractive: true });
         gen = interp.generateSteps();
         setInterpreter(interp);
         setStepGenerator(gen);
-        setSyntaxError(null);
         setRuntimeError(null);
-      } catch (e: any) {
-        setSyntaxError(e.message || String(e));
+      } catch {
         return;
       }
     }
@@ -217,15 +228,20 @@ export const IDEView: React.FC<IDEViewProps> = ({
     // Check if runtime error occurred in execution
     if (interp.error) {
       setRuntimeError(interp.error);
-      setConsoleLogs(prev => [...prev, `[${isEs ? 'Error de ejecución' : 'Runtime error'}]: ${interp.error}`]);
+      setConsoleLogs(prev => {
+        const next = [...prev, `[${isEs ? 'Error de ejecución' : 'Runtime error'}]: ${interp.error}`];
+        return next.length > MAX_UI_CONSOLE_LOGS ? next.slice(next.length - MAX_UI_CONSOLE_LOGS) : next;
+      });
       setIsPlaying(false);
       setActiveLine(undefined);
+      setIsConsoleCollapsedMobile(false);
       return;
     }
 
     if (interp.isWaitingForInput) {
       setIsWaitingInput(true);
       setIsPlaying(false);
+      setIsConsoleCollapsedMobile(false);
     }
 
     if (res.done || interp.isFinished) {
@@ -236,11 +252,17 @@ export const IDEView: React.FC<IDEViewProps> = ({
 
     const step = res.value as TraceStep;
     setActiveLine(step.lineNumber);
-    setTraceSteps(prev => [...prev, step]);
+    setTraceSteps(prev => {
+      const next = [...prev, step];
+      return next.length > MAX_UI_TRACE_STEPS ? next.slice(next.length - MAX_UI_TRACE_STEPS) : next;
+    });
     setCurrentStepIdx(prev => prev + 1);
 
     if (step.outputLog) {
-      setConsoleLogs(prev => [...prev, step.outputLog!]);
+      setConsoleLogs(prev => {
+        const next = [...prev, step.outputLog!];
+        return next.length > MAX_UI_CONSOLE_LOGS ? next.slice(next.length - MAX_UI_CONSOLE_LOGS) : next;
+      });
     }
   };
 
@@ -278,7 +300,10 @@ export const IDEView: React.FC<IDEViewProps> = ({
     e.preventDefault();
     if (!interpreter || !isWaitingInput) return;
     interpreter.provideInput(interactiveInput);
-    setConsoleLogs(prev => [...prev, `> ${interactiveInput === '' ? '""' : interactiveInput}`]);
+    setConsoleLogs(prev => {
+      const next = [...prev, `> ${interactiveInput === '' ? '""' : interactiveInput}`];
+      return next.length > MAX_UI_CONSOLE_LOGS ? next.slice(next.length - MAX_UI_CONSOLE_LOGS) : next;
+    });
     setInteractiveInput('');
     setIsWaitingInput(false);
     if (isPlaying) {
@@ -290,6 +315,7 @@ export const IDEView: React.FC<IDEViewProps> = ({
   const handleValidateExercise = () => {
     if (!selectedExercise) return;
     setIsPlaying(false);
+    setIsConsoleCollapsedMobile(false);
 
     try {
       const lexer = new Lexer(code);
@@ -354,6 +380,8 @@ FinAlgoritmo
     setCode(starterCode);
     resetExecution(starterCode);
     safeStorageSet('pseudoflow-draft-code', starterCode);
+    setIsSidebarDrawerOpen(false);
+    setMobileTab('code');
   };
 
   const handleLoadExerciseSolution = () => {
@@ -366,6 +394,8 @@ FinAlgoritmo
       setCode(solutionCode);
       resetExecution(solutionCode);
       safeStorageSet('pseudoflow-draft-code', solutionCode);
+      setIsSidebarDrawerOpen(false);
+      setMobileTab('code');
     }
   };
 
@@ -376,6 +406,8 @@ FinAlgoritmo
     setCode(newCode);
     resetExecution(newCode);
     safeStorageSet('pseudoflow-draft-code', newCode);
+    setIsSidebarDrawerOpen(false);
+    setMobileTab('code');
   };
 
   const handleDownloadCode = () => {
@@ -386,6 +418,7 @@ FinAlgoritmo
     a.download = `${selectedExercise ? selectedExercise.id : 'programa'}.pseudo`;
     a.click();
     URL.revokeObjectURL(url);
+    setIsMobileMenuOpen(false);
   };
 
   const handleUploadFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -402,6 +435,7 @@ FinAlgoritmo
     };
     reader.readAsText(file);
     e.target.value = '';
+    setIsMobileMenuOpen(false);
   };
 
   const handleClearDraft = () => {
@@ -413,28 +447,965 @@ FinAlgoritmo
       setSelectedExercise(null);
       setCode(DEFAULT_CODE);
       resetExecution(DEFAULT_CODE);
+      setIsMobileMenuOpen(false);
+    }
+  };
+
+  const handleResetScroll = () => {
+    if (textareaRef.current) {
+      textareaRef.current.scrollLeft = 0;
     }
   };
 
   const lineCount = code.split('\n').length;
 
+  /**
+   * Reusable Sidebar Content (Curriculum, Examples, Manual & Exercise Statement)
+   */
+  const renderSidebarContent = () => (
+    <>
+      <div className="ide-sidebar__tabs">
+        <button
+          type="button"
+          className={`ide-sidebar__tab ${activeSidebarTab === 'track' ? 'ide-sidebar__tab--active' : ''}`}
+          onClick={() => setActiveSidebarTab('track')}
+        >
+          {isEs ? 'Ruta (15)' : 'Track (15)'}
+        </button>
+        <button
+          type="button"
+          className={`ide-sidebar__tab ${activeSidebarTab === 'examples' ? 'ide-sidebar__tab--active' : ''}`}
+          onClick={() => setActiveSidebarTab('examples')}
+        >
+          {isEs ? 'Ejemplos (86)' : 'Examples (86)'}
+        </button>
+        <button
+          type="button"
+          className={`ide-sidebar__tab ${activeSidebarTab === 'specs' ? 'ide-sidebar__tab--active' : ''}`}
+          onClick={() => setActiveSidebarTab('specs')}
+        >
+          {isEs ? 'Manual' : 'Specs'}
+        </button>
+      </div>
+
+      {/* Tab Content: Curriculum Track */}
+      {activeSidebarTab === 'track' && (
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {modulesData.map((mod: any) => {
+            const modExercises = exercisesData.filter((ex: any) => ex.module === mod.id);
+            const isExpanded = expandedModules[mod.id] ?? false;
+
+            return (
+              <div key={mod.id} style={{ borderBottom: '1px solid var(--pl-line-soft)' }}>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isExpanded}
+                  onClick={() => toggleModuleAccordion(mod.id)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleModuleAccordion(mod.id);
+                    }
+                  }}
+                  style={{
+                    padding: '0.65rem 0.8rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: isExpanded ? 'var(--pl-sunken)' : 'transparent',
+                    fontSize: '0.85rem',
+                    fontWeight: 600
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    <span style={{ color: 'var(--pl-brand)' }}>{mod.id}:</span>
+                    <span>{isEs ? mod.title_es : mod.title_en || mod.title_es}</span>
+                  </div>
+                  <span className="pl-mono" style={{ fontSize: '0.72rem', color: 'var(--pl-ink-2)' }}>
+                    {modExercises.length}
+                  </span>
+                </div>
+
+                {isExpanded && (
+                  <div style={{ background: 'var(--pl-surface)' }}>
+                    {modExercises.map((ex: any) => {
+                      const isSelected = selectedExercise?.id === ex.id;
+                      return (
+                        <div
+                          key={ex.id}
+                          role="button"
+                          tabIndex={0}
+                          className={`ide-list-item ${isSelected ? 'ide-list-item--active' : ''}`}
+                          onClick={() => handleSelectExercise(ex)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleSelectExercise(ex);
+                            }
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.82rem', flex: 1, paddingRight: '0.4rem' }}>
+                              {isEs ? ex.title_es : ex.title_en || ex.title_es}
+                            </span>
+                            <span
+                              className="pl-mono"
+                              style={{
+                                fontSize: '0.7rem',
+                                background: ex.level === 1 ? '#dcfce7' : ex.level === 2 ? '#fef3c7' : '#fee2e2',
+                                color: '#1e293b',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0,
+                                alignSelf: 'center'
+                              }}
+                            >
+                              N{ex.level} · {ex.kind}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.76rem', color: 'var(--pl-ink-2)', lineHeight: 1.3 }}>
+                            {isEs ? ex.summary_es : ex.summary_en || ex.summary_es}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Tab Content: 86 Preloaded Examples */}
+      {activeSidebarTab === 'examples' && (
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {examplesData.map((ex: any) => (
+            <div
+              key={ex.id}
+              role="button"
+              tabIndex={0}
+              className="ide-list-item"
+              onClick={() => handleSelectExample(ex)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleSelectExample(ex);
+                }
+              }}
+            >
+              <div style={{ fontWeight: 600, fontSize: '0.83rem', color: 'var(--pl-ink)' }}>
+                {isEs ? ex.title_es || ex.id : ex.title_en || ex.title_es || ex.id}
+              </div>
+              {(ex.summary_es || ex.summary_en) && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--pl-ink-2)', marginTop: '0.2rem' }}>
+                  {isEs ? ex.summary_es : ex.summary_en || ex.summary_es}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tab Content: Language Specifications */}
+      {activeSidebarTab === 'specs' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0.8rem' }}>
+          {specsData.map((sp: any) => (
+            <div key={sp.id} style={{ marginBottom: '1.2rem' }}>
+              <h4 style={{ fontSize: '0.88rem', color: 'var(--pl-brand)', marginBottom: '0.3rem' }}>
+                {isEs ? sp.title_es : sp.title_en || sp.title_es}
+              </h4>
+              <p style={{ fontSize: '0.78rem', color: 'var(--pl-ink-2)', lineHeight: 1.4 }}>
+                {isEs ? sp.summary_es : sp.summary_en || sp.summary_es}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Bottom Exercise Statement Box */}
+      {selectedExercise && (
+        <div style={{ borderTop: '1px solid var(--pl-line)', background: 'var(--pl-sunken)', flexShrink: 0 }}>
+          <div
+            style={{
+              padding: '0.5rem 0.8rem',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              cursor: isMobile ? 'pointer' : 'default',
+              borderBottom: isStatementCollapsedMobile ? 'none' : '1px solid var(--pl-line-soft)'
+            }}
+            onClick={isMobile ? () => setIsStatementCollapsedMobile(prev => !prev) : undefined}
+          >
+            <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--pl-brand)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              {isMobile && (isStatementCollapsedMobile ? <ChevronRight size={14} /> : <ChevronDown size={14} />)}
+              <span>{isEs ? 'Enunciado del reto' : 'Challenge Statement'}</span>
+            </div>
+            <button
+              type="button"
+              className="pl-btn pl-btn--outline pl-btn--sm"
+              onClick={(e) => { e.stopPropagation(); handleLoadExerciseSolution(); }}
+              style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+              title={isEs ? 'Cargar solución de referencia en el editor' : 'Load reference solution into editor'}
+            >
+              <BookOpen size={12} />
+              <span>{isEs ? 'Solución' : 'Solution'}</span>
+            </button>
+          </div>
+
+          {!isStatementCollapsedMobile && (
+            <div style={{ padding: '0.75rem 0.8rem', maxHeight: '180px', overflowY: 'auto' }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--pl-ink)', lineHeight: 1.4 }}>
+                {isEs ? selectedExercise.statement_es : selectedExercise.statement_en || selectedExercise.statement_es}
+              </div>
+              <div style={{ marginTop: '0.4rem', fontSize: '0.74rem', color: 'var(--pl-ink-2)' }}>
+                {selectedExercise.visibleCases?.length || 0} {isEs ? 'formativos' : 'formative'} · {selectedExercise.hiddenCases?.length || 0} {isEs ? 'adicionales' : 'additional'}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  /**
+   * Reusable Editor Component (Error banners + Gutter + Code Textarea)
+   */
+  const renderEditor = () => (
+    <>
+      {syntaxError && (
+        <div style={{ background: '#fef2f2', color: '#991b1b', padding: '0.45rem 0.8rem', fontSize: '0.82rem', borderBottom: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+          <AlertCircle size={15} style={{ flexShrink: 0 }} />
+          <span><strong>{isEs ? 'Error sintáctico:' : 'Syntax Error:'}</strong> {syntaxError}</span>
+        </div>
+      )}
+
+      {runtimeError && (
+        <div style={{ background: '#fef2f2', color: '#991b1b', padding: '0.45rem 0.8rem', fontSize: '0.82rem', borderBottom: '1px solid #fecaca', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <AlertCircle size={15} style={{ flexShrink: 0 }} />
+            <span><strong>{isEs ? 'Error de ejecución:' : 'Runtime Error:'}</strong> {runtimeError}</span>
+          </div>
+          <button
+            type="button"
+            className="pl-btn pl-btn--outline pl-btn--sm"
+            onClick={() => resetExecution()}
+            style={{ borderColor: '#fca5a5', padding: '0.15rem 0.5rem', fontSize: '0.75rem' }}
+          >
+            {isEs ? 'Reiniciar' : 'Reset'}
+          </button>
+        </div>
+      )}
+
+      {/* Editor Sub-header with Word-Wrap & Scroll-Reset options */}
+      <div className="ide-editor-bar">
+        <span className="pl-mono" style={{ fontSize: '0.74rem', color: 'var(--pl-ink-2)' }}>
+          {lineCount} {isEs ? 'líneas' : 'lines'}
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <button
+            type="button"
+            className={`ide-mini-btn ${isWordWrap ? 'ide-mini-btn--active' : ''}`}
+            onClick={() => setIsWordWrap(prev => !prev)}
+            title={isWordWrap ? (isEs ? 'Desactivar ajuste de línea' : 'Disable word wrap') : (isEs ? 'Ajustar líneas al ancho' : 'Wrap lines')}
+          >
+            <WrapText size={12} />
+            <span>{isWordWrap ? (isEs ? 'Ajustado' : 'Wrapped') : (isEs ? 'Sin ajuste' : 'No wrap')}</span>
+          </button>
+          {!isWordWrap && (
+            <button
+              type="button"
+              className="ide-mini-btn"
+              onClick={handleResetScroll}
+              title={isEs ? 'Desplazar al inicio de línea' : 'Scroll to start of lines'}
+            >
+              <ArrowLeftToLine size={12} />
+              <span>{isEs ? 'Inicio' : 'Start'}</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="ide-editor-container">
+        <div className="ide-editor-gutter">
+          {Array.from({ length: lineCount }).map((_, i) => {
+            const lineNum = i + 1;
+            const isActive = activeLine === lineNum;
+            return (
+              <div
+                key={lineNum}
+                className={`ide-gutter-line ${isActive ? 'ide-gutter-line--active' : ''}`}
+              >
+                {isActive ? '▶ ' : ''}{lineNum}
+              </div>
+            );
+          })}
+        </div>
+
+        <textarea
+          ref={textareaRef}
+          className="ide-editor-textarea"
+          style={{
+            whiteSpace: isWordWrap ? 'pre-wrap' : 'pre',
+            wordBreak: isWordWrap ? 'break-word' : 'normal'
+          }}
+          value={code}
+          onChange={e => {
+            const newCode = e.target.value;
+            setCode(newCode);
+            setIsPlaying(false);
+            setIsWaitingInput(false);
+            setActiveLine(undefined);
+            setInterpreter(null);
+            setStepGenerator(null);
+            setRuntimeError(null);
+            safeStorageSet('pseudoflow-draft-code', newCode);
+          }}
+          spellCheck={false}
+          autoCapitalize="off"
+          autoComplete="off"
+          aria-label={isEs ? 'Editor de pseudocódigo interactivo' : 'Interactive pseudocode code editor'}
+        />
+      </div>
+    </>
+  );
+
+  /**
+   * Reusable Console / Terminal Component
+   */
+  const renderConsole = () => (
+    <div className={`ide-console-container ${isConsoleCollapsedMobile && isMobile ? 'ide-console-container--collapsed' : ''}`}>
+      <div
+        className="ide-console-header"
+        onClick={isMobile ? () => setIsConsoleCollapsedMobile(prev => !prev) : undefined}
+        style={{ cursor: isMobile ? 'pointer' : 'default' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <Terminal size={14} />
+          <span>{isEs ? 'Consola E/S & Validación' : 'I/O Console & Testing'}</span>
+          {isMobile && (
+            <span style={{ fontSize: '0.72rem', color: 'var(--pl-brand)', marginLeft: '0.3rem', fontWeight: 500 }}>
+              {isConsoleCollapsedMobile ? (isEs ? '(Expandir ▴)' : '(Expand ▴)') : (isEs ? '(Minimizar ▾)' : '(Collapse ▾)')}
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          style={{ background: 'transparent', border: 'none', color: 'var(--pl-ink-2)', cursor: 'pointer', fontSize: '0.78rem' }}
+          onClick={(e) => { e.stopPropagation(); setConsoleLogs([]); }}
+        >
+          {isEs ? 'Limpiar' : 'Clear'}
+        </button>
+      </div>
+
+      {(!isConsoleCollapsedMobile || !isMobile) && (
+        <>
+          <div className="ide-console-body">
+            {testResults && (
+              <div
+                style={{
+                  marginBottom: '0.75rem',
+                  padding: '0.6rem',
+                  borderRadius: '6px',
+                  background: testResults.passed ? '#ecfdf5' : '#fef2f2',
+                  border: `1px solid ${testResults.passed ? '#a7f3d0' : '#fecaca'}`,
+                  color: testResults.passed ? '#065f46' : '#991b1b'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                  <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <CheckCircle size={15} />
+                    <span>
+                      {testResults.passed
+                        ? (isEs ? '¡Pruebas superadas con éxito!' : 'Tests passed successfully!')
+                        : (isEs ? 'Pruebas no superadas' : 'Tests failed')}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.68rem', opacity: 0.85, background: 'rgba(0,0,0,0.06)', padding: '2px 6px', borderRadius: '4px' }}>
+                    {isEs ? 'Formativo' : 'Formative'}
+                  </span>
+                </div>
+                {testResults.details.map((d: any) => (
+                  <div key={d.index} style={{ fontSize: '0.78rem', marginTop: '0.2rem' }}>
+                    {isEs ? 'Caso' : 'Case'} {d.index} {d.isAdditional ? (isEs ? '(adicional)' : '(additional)') : ''}:{' '}
+                    {d.passed
+                      ? (isEs ? '✓ Correcto' : '✓ Passed')
+                      : `${isEs ? '✗ Error' : '✗ Failed'}. ${isEs ? 'Salida' : 'Actual'}: [${d.actualOutputs?.join(', ')}], ${isEs ? 'esperada' : 'expected'}: [${d.expectedOutputs?.join(', ')}]${d.error ? ` (${d.error})` : ''}`}
+                  </div>
+                ))}
+                <div style={{ fontSize: '0.68rem', marginTop: '0.35rem', opacity: 0.8, fontStyle: 'italic' }}>
+                  {isEs
+                    ? 'Evaluación formativa local en el navegador (casos de comprobación didáctica, no confidenciales).'
+                    : 'Local formative assessment in the browser (educational verification cases, not confidential).'}
+                </div>
+              </div>
+            )}
+
+            {consoleLogs.length === 0 && !isWaitingInput && !runtimeError && (
+              <div style={{ color: 'var(--pl-ink-3)', fontStyle: 'italic' }}>
+                {isEs
+                  ? 'La salida de las sentencias Escribir y diagnósticos aparecerá aquí.'
+                  : 'Output from Escribir statements and runtime diagnostics will appear here.'}
+              </div>
+            )}
+
+            {consoleLogs.map((log, i) => (
+              <div key={i}>{log}</div>
+            ))}
+
+            {isWaitingInput && (
+              <div style={{ color: 'var(--pl-brand)', fontWeight: 600 }}>
+                [{isEs ? 'Esperando entrada para sentencia Leer...' : 'Waiting for user input for Leer...'}]
+              </div>
+            )}
+          </div>
+
+          {isWaitingInput && (
+            <form onSubmit={handleSendInput} className="ide-console-input-row">
+              <input
+                type="text"
+                className="ide-console-input"
+                placeholder={isEs ? 'Introduce valor y pulsa Enviar...' : 'Type value and press Send...'}
+                value={interactiveInput}
+                onChange={e => setInteractiveInput(e.target.value)}
+                aria-label={isEs ? 'Entrada para comando Leer' : 'Input for Leer statement'}
+                autoFocus
+              />
+              <button type="submit" className="pl-btn pl-btn--primary pl-btn--sm" style={{ marginLeft: '0.5rem' }}>
+                {isEs ? 'Enviar' : 'Send'}
+              </button>
+            </form>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  /**
+   * Reusable Diagram Surfaces Component
+   */
+  const renderSurfaces = (includeTraceTab: boolean = true) => {
+    const effectiveTab = (!includeTraceTab && activeSurfaceTab === 'trace') ? 'flow' : activeSurfaceTab;
+
+    return (
+      <>
+        <div className="ide-surfaces-nav">
+          <button
+            type="button"
+            className={`ide-surface-tab ${effectiveTab === 'flow' ? 'ide-surface-tab--active' : ''}`}
+            onClick={() => setActiveSurfaceTab('flow')}
+          >
+            <GitBranch size={14} />
+            <span>{isEs ? 'Ordinograma' : 'Flowchart'}</span>
+          </button>
+          <button
+            type="button"
+            className={`ide-surface-tab ${effectiveTab === 'ns' ? 'ide-surface-tab--active' : ''}`}
+            onClick={() => setActiveSurfaceTab('ns')}
+          >
+            <Layers size={14} />
+            <span>{isEs ? 'Estructograma' : 'Structogram'}</span>
+          </button>
+          {includeTraceTab && (
+            <button
+              type="button"
+              className={`ide-surface-tab ${effectiveTab === 'trace' ? 'ide-surface-tab--active' : ''}`}
+              onClick={() => setActiveSurfaceTab('trace')}
+            >
+              <Table size={14} />
+              <span>{isEs ? 'Prueba de Escritorio' : 'Trace Table'}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className={`ide-surface-tab ${effectiveTab === 'uml' ? 'ide-surface-tab--active' : ''}`}
+            onClick={() => setActiveSurfaceTab('uml')}
+          >
+            <Box size={14} />
+            <span>{isEs ? 'Clases UML' : 'UML Classes'}</span>
+          </button>
+          <button
+            type="button"
+            className={`ide-surface-tab ${effectiveTab === 'export' ? 'ide-surface-tab--active' : ''}`}
+            onClick={() => setActiveSurfaceTab('export')}
+          >
+            <Code2 size={14} />
+            <span>Python & Rust</span>
+          </button>
+        </div>
+
+        <div className="ide-surface-content">
+          {syntaxError && (effectiveTab === 'flow' || effectiveTab === 'ns' || effectiveTab === 'uml') && (
+            <div style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: 'var(--pl-ink-2)' }}>
+              <div style={{ color: '#ef4444', fontWeight: 600, marginBottom: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                <AlertCircle size={20} />
+                <span>{isEs ? 'Diagrama no disponible por error sintáctico' : 'Diagram unavailable due to syntax error'}</span>
+              </div>
+              <p style={{ fontSize: '0.85rem', maxWidth: '420px', margin: '0 auto', lineHeight: 1.5 }}>
+                {isEs
+                  ? 'Corrige el código en el editor para sincronizar el diagrama automáticamente.'
+                  : 'Fix the code in the editor to automatically regenerate the diagram.'}
+              </p>
+            </div>
+          )}
+
+          {!syntaxError && effectiveTab === 'flow' && (
+            <FlowchartView data={flowchartData} activeLine={activeLine} />
+          )}
+
+          {!syntaxError && effectiveTab === 'ns' && (
+            <StructogramView blocks={structogramBlocks} activeLine={activeLine} />
+          )}
+
+          {includeTraceTab && effectiveTab === 'trace' && (
+            <TraceTableView steps={traceSteps} currentStepIndex={currentStepIdx} />
+          )}
+
+          {!syntaxError && effectiveTab === 'uml' && (
+            <UmlClassView classes={ast?.classes || []} />
+          )}
+
+          {effectiveTab === 'export' && (
+            <CodeExportView code={code} />
+          )}
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className="ide-wrapper">
       {/* Top Navbar / Control Bar */}
       <div className="ide-toolbar">
+        {/* Left: Home + 2-col drawer toggle + Title */}
         <div className="ide-toolbar__group">
           <button className="pl-btn pl-btn--outline pl-btn--sm" onClick={onBackToHome} title={isEs ? 'Volver al inicio' : 'Back to Home'}>
             <Home size={15} />
-            <span>{isEs ? 'Inicio' : 'Home'}</span>
+            <span className="ide-btn-label-desktop">{isEs ? 'Inicio' : 'Home'}</span>
           </button>
-          <span className="pl-mono" style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--pl-brand)' }}>
+
+          {desktopLayout === '2-col' && !isMobile && (
+            <button
+              type="button"
+              className={`pl-btn pl-btn--sm ${isSidebarDrawerOpen ? 'pl-btn--primary' : 'pl-btn--outline'}`}
+              onClick={() => setIsSidebarDrawerOpen(prev => !prev)}
+              title={isEs ? 'Mostrar/Ocultar Módulos y Retos' : 'Toggle Modules & Challenges'}
+            >
+              <PanelLeft size={14} />
+              <span>{isEs ? 'Retos' : 'Track'}</span>
+            </button>
+          )}
+
+          <span className="pl-mono ide-title-pill" style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--pl-brand)' }}>
             {selectedExercise ? (isEs ? selectedExercise.title_es : selectedExercise.title_en || selectedExercise.title_es) : 'PseudoFlow IDE'}
           </span>
         </div>
 
-        {/* Playback Controls */}
+        {/* Center on Desktop: Playback Controls & File Actions (HIDDEN on Mobile to save 140px vertical space) */}
+        {!isMobile && (
+          <div className="ide-toolbar__group ide-toolbar__group--center">
+            <button
+              type="button"
+              className={`pl-btn pl-btn--sm ${isPlaying ? 'pl-btn--outline' : 'pl-btn--primary'}`}
+              onClick={handleStartOrPause}
+              title={isPlaying ? (isEs ? 'Pausar' : 'Pause') : (isEs ? 'Ejecutar' : 'Run')}
+            >
+              {isPlaying ? <Pause size={14} /> : <Play size={14} fill="currentColor" />}
+              <span>{isPlaying ? (isEs ? 'Pausar' : 'Pause') : (isEs ? 'Ejecutar' : 'Run')}</span>
+            </button>
+
+            <button
+              type="button"
+              className="pl-btn pl-btn--outline pl-btn--sm"
+              onClick={handleStepForward}
+              title={isEs ? 'Avanzar 1 sentencia' : 'Step 1 statement'}
+            >
+              <StepForward size={14} />
+              <span>{isEs ? 'Paso' : 'Step'}</span>
+            </button>
+
+            <button
+              type="button"
+              className="pl-btn pl-btn--outline pl-btn--sm"
+              onClick={() => resetExecution()}
+              title={isEs ? 'Reiniciar ejecución' : 'Reset execution'}
+            >
+              <RotateCcw size={14} />
+              <span>{isEs ? 'Reiniciar' : 'Reset'}</span>
+            </button>
+
+            <div className="ide-speed-control" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem', color: 'var(--pl-ink-2)' }}>
+              <span>{isEs ? 'Velocidad:' : 'Speed:'}</span>
+              <select
+                value={speedMs}
+                onChange={e => setSpeedMs(Number(e.target.value))}
+                style={{
+                  background: 'var(--pl-sunken)',
+                  border: '1px solid var(--pl-line)',
+                  color: 'var(--pl-ink)',
+                  borderRadius: '4px',
+                  padding: '0.2rem 0.4rem',
+                  fontSize: '0.8rem',
+                  outline: 'none'
+                }}
+                aria-label={isEs ? 'Velocidad de ejecución' : 'Execution speed'}
+              >
+                <option value={700}>0.5x ({isEs ? 'Lento' : 'Slow'})</option>
+                <option value={350}>1x ({isEs ? 'Normal' : 'Normal'})</option>
+                <option value={150}>2x ({isEs ? 'Rápido' : 'Fast'})</option>
+                <option value={30}>Max ({isEs ? 'Ráfaga' : 'Burst'})</option>
+              </select>
+            </div>
+
+            {selectedExercise && (
+              <button
+                type="button"
+                className="pl-btn pl-btn--sm"
+                style={{ background: 'var(--pl-syn-str)', color: '#fff' }}
+                onClick={handleValidateExercise}
+                title={isEs ? 'Evaluar con casos de prueba' : 'Validate test cases'}
+              >
+                <CheckCircle size={14} />
+                <span>{isEs ? 'Comprobar' : 'Check'}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="pl-btn pl-btn--outline pl-btn--sm"
+              onClick={handleDownloadCode}
+              title={isEs ? 'Descargar código (.pseudo)' : 'Download code (.pseudo)'}
+            >
+              <Download size={14} />
+              <span>{isEs ? 'Descargar' : 'Download'}</span>
+            </button>
+
+            <button
+              type="button"
+              className="pl-btn pl-btn--outline pl-btn--sm"
+              onClick={() => fileInputRef.current?.click()}
+              title={isEs ? 'Abrir archivo local (.pseudo, .txt, .psc)' : 'Open local code file (.pseudo, .txt, .psc)'}
+            >
+              <Upload size={14} />
+              <span>{isEs ? 'Abrir' : 'Open'}</span>
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleUploadFile}
+              accept=".pseudo,.txt,.psc"
+              style={{ display: 'none' }}
+            />
+
+            <button
+              type="button"
+              className="pl-btn pl-btn--outline pl-btn--sm"
+              onClick={handleClearDraft}
+              title={isEs ? 'Restablecer al ejemplo inicial' : 'Reset to default code'}
+            >
+              <Trash2 size={14} />
+              <span>{isEs ? 'Restablecer' : 'Clear'}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Right: Actions, Layout Switcher & Toggles */}
         <div className="ide-toolbar__group">
+          {/* Quick Validate Button on Mobile when an exercise is active */}
+          {isMobile && selectedExercise && (
+            <button
+              type="button"
+              className="pl-btn pl-btn--sm"
+              style={{ background: 'var(--pl-syn-str)', color: '#fff', padding: '0.3rem 0.55rem' }}
+              onClick={handleValidateExercise}
+              title={isEs ? 'Evaluar reto' : 'Validate challenge'}
+            >
+              <CheckCircle size={13} />
+              <span>{isEs ? 'Evaluar' : 'Check'}</span>
+            </button>
+          )}
+
+          {/* Mobile Secondary Options Menu Trigger */}
+          {isMobile && (
+            <button
+              type="button"
+              className={`pl-icon-btn ${isMobileMenuOpen ? 'pl-icon-btn--active' : ''}`}
+              onClick={() => setIsMobileMenuOpen(prev => !prev)}
+              title={isEs ? 'Opciones adicionales' : 'More options'}
+            >
+              <Settings size={16} />
+            </button>
+          )}
+
+          {/* Desktop Multi-column Layout Switcher */}
+          {!isMobile && (
+            <div className="ide-layout-switch" role="group" aria-label={isEs ? 'Distribución de columnas' : 'Column layout'}>
+              <button
+                type="button"
+                className={`ide-layout-btn ${desktopLayout === '2-col' ? 'ide-layout-btn--active' : ''}`}
+                onClick={() => handleSetDesktopLayout('2-col')}
+                title={isEs ? '2 Columnas: Editor y Vistas amplias' : '2 Columns: Spacious Editor & Views'}
+              >
+                <Columns2 size={14} />
+                <span className="ide-layout-btn__text">2</span>
+              </button>
+              <button
+                type="button"
+                className={`ide-layout-btn ${desktopLayout === '3-col' ? 'ide-layout-btn--active' : ''}`}
+                onClick={() => handleSetDesktopLayout('3-col')}
+                title={isEs ? '3 Columnas: Ruta, Editor y Vistas' : '3 Columns: Track, Editor & Views'}
+              >
+                <Columns3 size={14} />
+                <span className="ide-layout-btn__text">3</span>
+              </button>
+              <button
+                type="button"
+                className={`ide-layout-btn ${desktopLayout === '4-col' ? 'ide-layout-btn--active' : ''}`}
+                onClick={() => handleSetDesktopLayout('4-col')}
+                title={isEs ? '4 Columnas: Ruta, Editor, Consola/Traza y Diagrama' : '4 Columns: Track, Editor, Console/Trace & Diagram'}
+              >
+                <Columns4 size={14} />
+                <span className="ide-layout-btn__text">4</span>
+              </button>
+            </div>
+          )}
+
+          <button className="pl-icon-btn" onClick={onToggleTheme} title={isEs ? 'Cambiar tema' : 'Toggle theme'}>
+            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+          <button className="pl-btn pl-btn--outline pl-btn--sm" onClick={onToggleLang} style={{ minWidth: 34, padding: '0.28rem 0.45rem' }}>
+            {isEs ? 'EN' : 'ES'}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Secondary Options Popover / Sheet */}
+      {isMobile && isMobileMenuOpen && (
+        <>
+          <div className="ide-drawer-backdrop" onClick={() => setIsMobileMenuOpen(false)} />
+          <div className="ide-mobile-menu">
+            <div className="ide-mobile-menu__header">
+              <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{isEs ? 'Opciones del Editor' : 'Editor Options'}</span>
+              <button type="button" className="pl-icon-btn" onClick={() => setIsMobileMenuOpen(false)}>
+                <X size={15} />
+              </button>
+            </div>
+            <div className="ide-mobile-menu__body">
+              <div className="ide-mobile-menu__row">
+                <span>{isEs ? 'Velocidad de ejecución:' : 'Execution speed:'}</span>
+                <select
+                  value={speedMs}
+                  onChange={e => setSpeedMs(Number(e.target.value))}
+                  style={{
+                    background: 'var(--pl-sunken)',
+                    border: '1px solid var(--pl-line)',
+                    color: 'var(--pl-ink)',
+                    borderRadius: '4px',
+                    padding: '0.3rem 0.5rem',
+                    fontSize: '0.82rem',
+                    outline: 'none'
+                  }}
+                >
+                  <option value={700}>0.5x ({isEs ? 'Lento' : 'Slow'})</option>
+                  <option value={350}>1x ({isEs ? 'Normal' : 'Normal'})</option>
+                  <option value={150}>2x ({isEs ? 'Rápido' : 'Fast'})</option>
+                  <option value={30}>Max ({isEs ? 'Ráfaga' : 'Burst'})</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.6rem' }}>
+                <button
+                  type="button"
+                  className="pl-btn pl-btn--outline pl-btn--sm"
+                  style={{ justifyContent: 'flex-start' }}
+                  onClick={handleDownloadCode}
+                >
+                  <Download size={14} />
+                  <span>{isEs ? 'Descargar código (.pseudo)' : 'Download code (.pseudo)'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="pl-btn pl-btn--outline pl-btn--sm"
+                  style={{ justifyContent: 'flex-start' }}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload size={14} />
+                  <span>{isEs ? 'Abrir archivo local' : 'Open local file'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="pl-btn pl-btn--outline pl-btn--sm"
+                  style={{ justifyContent: 'flex-start', color: '#dc2626', borderColor: '#fca5a5' }}
+                  onClick={handleClearDraft}
+                >
+                  <Trash2 size={14} />
+                  <span>{isEs ? 'Restablecer al código inicial' : 'Reset to starter code'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Mobile Navigation Tabs (< 1024px) */}
+      <nav className="ide-mobile-tabs" aria-label={isEs ? 'Navegación de secciones móvil' : 'Mobile sections navigation'}>
+        <button
+          type="button"
+          className={`ide-mobile-tab ${mobileTab === 'code' ? 'ide-mobile-tab--active' : ''}`}
+          onClick={() => setMobileTab('code')}
+        >
+          <Code2 size={16} />
+          <span>{isEs ? 'Código' : 'Code'}</span>
+          {syntaxError && <span className="ide-tab-badge ide-tab-badge--error" title={syntaxError}>!</span>}
+        </button>
+        <button
+          type="button"
+          className={`ide-mobile-tab ${mobileTab === 'surfaces' ? 'ide-mobile-tab--active' : ''}`}
+          onClick={() => setMobileTab('surfaces')}
+        >
+          <GitBranch size={16} />
+          <span>{isEs ? 'Vistas' : 'Views'}</span>
+          {activeLine !== undefined && (
+            <span className="ide-tab-badge ide-tab-badge--active-run" title={`Línea ${activeLine}`}>
+              L{activeLine}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          className={`ide-mobile-tab ${mobileTab === 'curriculum' ? 'ide-mobile-tab--active' : ''}`}
+          onClick={() => setMobileTab('curriculum')}
+        >
+          <BookOpen size={16} />
+          <span>{isEs ? 'Retos' : 'Track'}</span>
+          {selectedExercise && (
+            <span className="ide-tab-badge ide-tab-badge--info" title={selectedExercise.id}>
+              ✓
+            </span>
+          )}
+        </button>
+      </nav>
+
+      {/* 2-Column Mode: Modal Drawer Backdrop & Slide-out Sidebar */}
+      {desktopLayout === '2-col' && !isMobile && isSidebarDrawerOpen && (
+        <>
+          <div className="ide-drawer-backdrop" onClick={() => setIsSidebarDrawerOpen(false)} />
+          <aside className="ide-sidebar ide-sidebar--drawer">
+            <div className="ide-drawer-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <BookOpen size={16} style={{ color: 'var(--pl-brand)' }} />
+                <span>{isEs ? 'Módulos y Retos' : 'Modules & Challenges'}</span>
+              </div>
+              <button
+                type="button"
+                className="pl-icon-btn"
+                onClick={() => setIsSidebarDrawerOpen(false)}
+                title={isEs ? 'Cerrar panel' : 'Close panel'}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {renderSidebarContent()}
+          </aside>
+        </>
+      )}
+
+      {/* Main IDE Area */}
+      <div className={`ide-main ide-main--layout-${desktopLayout} ide-main--mobile-${mobileTab}`}>
+        {/* On Mobile: Single-pane conditional display with responsive tabs */}
+        {isMobile ? (
+          <>
+            {mobileTab === 'curriculum' && (
+              <aside className="ide-sidebar ide-sidebar--mobile-active">
+                {renderSidebarContent()}
+              </aside>
+            )}
+
+            {mobileTab === 'code' && (
+              <section className="ide-center ide-center--mobile-active">
+                {renderEditor()}
+                {renderConsole()}
+              </section>
+            )}
+
+            {mobileTab === 'surfaces' && (
+              <section className="ide-surfaces ide-surfaces--mobile-active">
+                {renderSurfaces(true)}
+              </section>
+            )}
+          </>
+        ) : (
+          /* On Desktop: 2, 3 or 4 Columns */
+          <>
+            {/* Column 1: Sidebar (Track/Examples/Specs) - In 2-col mode it is opened via drawer above */}
+            {desktopLayout !== '2-col' && (
+              <aside className="ide-sidebar">
+                {renderSidebarContent()}
+              </aside>
+            )}
+
+            {/* In 4-Column Mode: Editor, Live Execution (Console + Trace), and Visual Diagram */}
+            {desktopLayout === '4-col' ? (
+              <>
+                {/* Column 2: Editor */}
+                <section className="ide-col-editor">
+                  {renderEditor()}
+                </section>
+
+                {/* Column 3: Live Execution (Console + Trace Table) */}
+                <section className="ide-col-execution">
+                  <div className="ide-col-execution__console">
+                    {renderConsole()}
+                  </div>
+                  <div className="ide-col-execution__trace">
+                    <div className="ide-col-execution__trace-header">
+                      <Table size={14} />
+                      <span>{isEs ? 'Prueba de Escritorio en Vivo' : 'Live Desk Trace'}</span>
+                      {traceSteps.length > 0 && (
+                        <span className="pl-mono" style={{ marginLeft: 'auto', fontSize: '0.72rem', color: 'var(--pl-ink-2)' }}>
+                          {traceSteps.length} {isEs ? 'pasos' : 'steps'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="ide-trace-container">
+                      <TraceTableView steps={traceSteps} currentStepIndex={currentStepIdx} />
+                    </div>
+                  </div>
+                </section>
+
+                {/* Column 4: Visual Diagrams (Flowchart, Structogram, UML, Export) */}
+                <section className="ide-col-visual">
+                  {renderSurfaces(false)}
+                </section>
+              </>
+            ) : (
+              /* In 2-Column or 3-Column Mode: Standard Center (Editor + Console) and Surfaces */
+              <>
+                <section className="ide-center">
+                  {renderEditor()}
+                  {renderConsole()}
+                </section>
+
+                <section className="ide-surfaces">
+                  {renderSurfaces(true)}
+                </section>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Mobile Persistent Floating Execution Bar */}
+      <div className="ide-mobile-action-bar">
+        <div className="ide-mobile-action-bar__controls">
           <button
+            type="button"
             className={`pl-btn pl-btn--sm ${isPlaying ? 'pl-btn--outline' : 'pl-btn--primary'}`}
             onClick={handleStartOrPause}
             title={isPlaying ? (isEs ? 'Pausar' : 'Pause') : (isEs ? 'Ejecutar' : 'Run')}
@@ -442,527 +1413,48 @@ FinAlgoritmo
             {isPlaying ? <Pause size={14} /> : <Play size={14} fill="currentColor" />}
             <span>{isPlaying ? (isEs ? 'Pausar' : 'Pause') : (isEs ? 'Ejecutar' : 'Run')}</span>
           </button>
-
           <button
+            type="button"
             className="pl-btn pl-btn--outline pl-btn--sm"
             onClick={handleStepForward}
-            title={isEs ? 'Avanzar 1 sentencia' : 'Step 1 statement'}
+            title={isEs ? 'Avanzar 1 sentencia' : 'Step'}
           >
             <StepForward size={14} />
             <span>{isEs ? 'Paso' : 'Step'}</span>
           </button>
-
           <button
+            type="button"
             className="pl-btn pl-btn--outline pl-btn--sm"
             onClick={() => resetExecution()}
-            title={isEs ? 'Reiniciar ejecución' : 'Reset execution'}
+            title={isEs ? 'Reiniciar' : 'Reset'}
           >
             <RotateCcw size={14} />
-            <span>{isEs ? 'Reiniciar' : 'Reset'}</span>
-          </button>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem', color: 'var(--pl-ink-2)' }}>
-            <span>{isEs ? 'Velocidad:' : 'Speed:'}</span>
-            <select
-              value={speedMs}
-              onChange={e => setSpeedMs(Number(e.target.value))}
-              style={{
-                background: 'var(--pl-sunken)',
-                border: '1px solid var(--pl-line)',
-                color: 'var(--pl-ink)',
-                borderRadius: '4px',
-                padding: '0.2rem 0.4rem',
-                fontSize: '0.8rem',
-                outline: 'none'
-              }}
-            >
-              <option value={700}>0.5x ({isEs ? 'Lento' : 'Slow'})</option>
-              <option value={350}>1x ({isEs ? 'Normal' : 'Normal'})</option>
-              <option value={150}>2x ({isEs ? 'Rápido' : 'Fast'})</option>
-              <option value={30}>Max ({isEs ? 'Ráfaga' : 'Burst'})</option>
-            </select>
-          </div>
-
-          {selectedExercise && (
-            <button
-              className="pl-btn pl-btn--sm"
-              style={{ background: 'var(--pl-syn-str)', color: '#fff' }}
-              onClick={handleValidateExercise}
-              title={isEs ? 'Evaluar con casos de prueba' : 'Validate test cases'}
-            >
-              <CheckCircle size={14} />
-              <span>{isEs ? 'Comprobar' : 'Check'}</span>
-            </button>
-          )}
-
-          {/* Download & Upload File Actions */}
-          <button
-            className="pl-btn pl-btn--outline pl-btn--sm"
-            onClick={handleDownloadCode}
-            title={isEs ? 'Descargar código (.pseudo)' : 'Download code (.pseudo)'}
-          >
-            <Download size={14} />
-            <span>{isEs ? 'Descargar' : 'Download'}</span>
-          </button>
-
-          <button
-            className="pl-btn pl-btn--outline pl-btn--sm"
-            onClick={() => fileInputRef.current?.click()}
-            title={isEs ? 'Abrir archivo de código local (.pseudo, .txt, .psc)' : 'Open local code file (.pseudo, .txt, .psc)'}
-          >
-            <Upload size={14} />
-            <span>{isEs ? 'Abrir' : 'Open'}</span>
-          </button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleUploadFile}
-            accept=".pseudo,.txt,.psc"
-            style={{ display: 'none' }}
-          />
-
-          <button
-            className="pl-btn pl-btn--outline pl-btn--sm"
-            onClick={handleClearDraft}
-            title={isEs ? 'Restablecer al ejemplo inicial (elimina el borrador guardado en este navegador)' : 'Reset to default code (clears draft saved in this browser)'}
-          >
-            <Trash2 size={14} />
-            <span>{isEs ? 'Restablecer' : 'Clear'}</span>
           </button>
         </div>
 
-        {/* Global toggles */}
-        <div className="ide-toolbar__group">
-          <button className="pl-icon-btn" onClick={onToggleTheme} title={isEs ? 'Cambiar tema' : 'Toggle theme'}>
-            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
-          </button>
-          <button className="pl-btn pl-btn--outline pl-btn--sm" onClick={onToggleLang}>
-            {isEs ? 'EN' : 'ES'}
-          </button>
+        <div className="ide-mobile-action-bar__status">
+          {activeLine !== undefined ? (
+            <span className="ide-pill ide-pill--active">
+              <span className="ide-pill__dot"></span>
+              {isEs ? `Línea ${activeLine}` : `Line ${activeLine}`}
+            </span>
+          ) : isWaitingInput ? (
+            <span className="ide-pill ide-pill--warning">
+              {isEs ? 'Esperando dato' : 'Waiting input'}
+            </span>
+          ) : isPlaying ? (
+            <span className="ide-pill ide-pill--active">
+              {isEs ? 'Ejecutando...' : 'Running...'}
+            </span>
+          ) : (
+            <span className="ide-pill">
+              {isEs ? 'Listo' : 'Ready'}
+            </span>
+          )}
         </div>
-      </div>
-
-      {/* Main IDE area */}
-      <div className="ide-main">
-        {/* Left Sidebar (Curriculum & Exercise Selector) */}
-        <aside className="ide-sidebar">
-          <div className="ide-sidebar__tabs">
-            <button
-              className={`ide-sidebar__tab ${activeSidebarTab === 'track' ? 'ide-sidebar__tab--active' : ''}`}
-              onClick={() => setActiveSidebarTab('track')}
-            >
-              {isEs ? 'Ruta (15 Módulos)' : 'Curriculum (15)'}
-            </button>
-            <button
-              className={`ide-sidebar__tab ${activeSidebarTab === 'examples' ? 'ide-sidebar__tab--active' : ''}`}
-              onClick={() => setActiveSidebarTab('examples')}
-            >
-              {isEs ? 'Ejemplos (86)' : 'Examples (86)'}
-            </button>
-            <button
-              className={`ide-sidebar__tab ${activeSidebarTab === 'specs' ? 'ide-sidebar__tab--active' : ''}`}
-              onClick={() => setActiveSidebarTab('specs')}
-            >
-              {isEs ? 'Manual' : 'Specs'}
-            </button>
-          </div>
-
-          {/* Tab Content: Curriculum Track */}
-          {activeSidebarTab === 'track' && (
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-              {modulesData.map((mod: any) => {
-                const modExercises = exercisesData.filter((ex: any) => ex.module === mod.id);
-                const isExpanded = expandedModules[mod.id] ?? false;
-
-                return (
-                  <div key={mod.id} style={{ borderBottom: '1px solid var(--pl-line-soft)' }}>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      aria-expanded={isExpanded}
-                      onClick={() => toggleModuleAccordion(mod.id)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          toggleModuleAccordion(mod.id);
-                        }
-                      }}
-                      style={{
-                        padding: '0.65rem 0.8rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        background: isExpanded ? 'var(--pl-sunken)' : 'transparent',
-                        fontSize: '0.85rem',
-                        fontWeight: 600
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        <span style={{ color: 'var(--pl-brand)' }}>{mod.id}:</span>
-                        <span>{isEs ? mod.title_es : mod.title_en || mod.title_es}</span>
-                      </div>
-                      <span className="pl-mono" style={{ fontSize: '0.72rem', color: 'var(--pl-ink-2)' }}>
-                        {modExercises.length}
-                      </span>
-                    </div>
-
-                    {isExpanded && (
-                      <div style={{ background: 'var(--pl-surface)' }}>
-                        {modExercises.map((ex: any) => {
-                          const isSelected = selectedExercise?.id === ex.id;
-                          return (
-                            <div
-                              key={ex.id}
-                              role="button"
-                              tabIndex={0}
-                              className={`ide-list-item ${isSelected ? 'ide-list-item--active' : ''}`}
-                              onClick={() => handleSelectExercise(ex)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
-                                  handleSelectExercise(ex);
-                                }
-                              }}
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                                <span style={{ fontWeight: 600, fontSize: '0.82rem' }}>
-                                  {isEs ? ex.title_es : ex.title_en || ex.title_es}
-                                </span>
-                                <span
-                                  className="pl-mono"
-                                  style={{
-                                    fontSize: '0.7rem',
-                                    background: ex.level === 1 ? '#dcfce7' : ex.level === 2 ? '#fef3c7' : '#fee2e2',
-                                    color: '#1e293b',
-                                    padding: '1px 5px',
-                                    borderRadius: '3px'
-                                  }}
-                                >
-                                  N{ex.level} · {ex.kind}
-                                </span>
-                              </div>
-                              <div style={{ fontSize: '0.76rem', color: 'var(--pl-ink-2)', lineHeight: 1.3 }}>
-                                {isEs ? ex.summary_es : ex.summary_en || ex.summary_es}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Tab Content: 86 Preloaded Examples */}
-          {activeSidebarTab === 'examples' && (
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-              {examplesData.map((ex: any) => (
-                <div
-                  key={ex.id}
-                  role="button"
-                  tabIndex={0}
-                  className="ide-list-item"
-                  onClick={() => handleSelectExample(ex)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleSelectExample(ex);
-                    }
-                  }}
-                >
-                  <div style={{ fontWeight: 600, fontSize: '0.83rem', color: 'var(--pl-ink)' }}>
-                    {isEs ? ex.title_es || ex.id : ex.title_en || ex.title_es || ex.id}
-                  </div>
-                  {(ex.summary_es || ex.summary_en) && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--pl-ink-2)', marginTop: '0.2rem' }}>
-                      {isEs ? ex.summary_es : ex.summary_en || ex.summary_es}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Tab Content: Language Specifications */}
-          {activeSidebarTab === 'specs' && (
-            <div style={{ flex: 1, overflowY: 'auto', padding: '0.8rem' }}>
-              {specsData.map((sp: any) => (
-                <div key={sp.id} style={{ marginBottom: '1.2rem' }}>
-                  <h4 style={{ fontSize: '0.88rem', color: 'var(--pl-brand)', marginBottom: '0.3rem' }}>
-                    {isEs ? sp.title_es : sp.title_en || sp.title_es}
-                  </h4>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--pl-ink-2)', lineHeight: 1.4 }}>
-                    {isEs ? sp.summary_es : sp.summary_en || sp.summary_es}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Bottom Exercise Statement Box */}
-          {selectedExercise && (
-            <div style={{ padding: '0.8rem', borderTop: '1px solid var(--pl-line)', background: 'var(--pl-sunken)', maxHeight: '210px', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
-                <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--pl-brand)' }}>
-                  {isEs ? 'Enunciado del reto:' : 'Challenge Statement:'}
-                </div>
-                <button
-                  className="pl-btn pl-btn--outline pl-btn--sm"
-                  onClick={handleLoadExerciseSolution}
-                  style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                  title={isEs ? 'Cargar solución de referencia en el editor' : 'Load reference solution into editor'}
-                >
-                  <BookOpen size={12} />
-                  <span>{isEs ? 'Ver solución' : 'View solution'}</span>
-                </button>
-              </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--pl-ink)', lineHeight: 1.4 }}>
-                {isEs ? selectedExercise.statement_es : selectedExercise.statement_en || selectedExercise.statement_es}
-              </div>
-              <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--pl-ink-2)' }}>
-                {selectedExercise.visibleCases?.length || 0} {isEs ? 'casos formativos' : 'formative cases'} · {selectedExercise.hiddenCases?.length || 0} {isEs ? 'casos adicionales' : 'additional test cases'}
-              </div>
-            </div>
-          )}
-        </aside>
-
-        {/* Center Panel (Code Editor & Interactive Console) */}
-        <section className="ide-center">
-          {/* Syntax Error Banner */}
-          {syntaxError && (
-            <div style={{ background: '#fef2f2', color: '#991b1b', padding: '0.45rem 0.8rem', fontSize: '0.82rem', borderBottom: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <AlertCircle size={15} style={{ flexShrink: 0 }} />
-              <span><strong>{isEs ? 'Error léxico o sintáctico:' : 'Syntax or Lexical Error:'}</strong> {syntaxError}</span>
-            </div>
-          )}
-
-          {/* Runtime Error Banner */}
-          {runtimeError && (
-            <div style={{ background: '#fef2f2', color: '#991b1b', padding: '0.45rem 0.8rem', fontSize: '0.82rem', borderBottom: '1px solid #fecaca', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <AlertCircle size={15} style={{ flexShrink: 0 }} />
-                <span><strong>{isEs ? 'Error en tiempo de ejecución:' : 'Runtime Error:'}</strong> {runtimeError}</span>
-              </div>
-              <button
-                className="pl-btn pl-btn--outline pl-btn--sm"
-                onClick={() => resetExecution()}
-                style={{ borderColor: '#fca5a5', padding: '0.15rem 0.5rem', fontSize: '0.75rem' }}
-              >
-                {isEs ? 'Reiniciar' : 'Reset'}
-              </button>
-            </div>
-          )}
-
-          {/* Editor Container with Line Numbers */}
-          <div className="ide-editor-container">
-            <div className="ide-editor-gutter">
-              {Array.from({ length: lineCount }).map((_, i) => {
-                const lineNum = i + 1;
-                const isActive = activeLine === lineNum;
-                return (
-                  <div
-                    key={lineNum}
-                    className={`ide-gutter-line ${isActive ? 'ide-gutter-line--active' : ''}`}
-                  >
-                    {isActive ? '▶ ' : ''}{lineNum}
-                  </div>
-                );
-              })}
-            </div>
-
-            <textarea
-              className="ide-editor-textarea"
-              value={code}
-              onChange={e => {
-                const newCode = e.target.value;
-                setCode(newCode);
-                setIsPlaying(false);
-                setIsWaitingInput(false);
-                setActiveLine(undefined);
-                setInterpreter(null);
-                setStepGenerator(null);
-                setRuntimeError(null);
-                safeStorageSet('pseudoflow-draft-code', newCode);
-              }}
-              spellCheck={false}
-              autoCapitalize="off"
-              autoComplete="off"
-              aria-label={isEs ? 'Editor de pseudocódigo interactivo' : 'Interactive pseudocode code editor'}
-            />
-          </div>
-
-          {/* Interactive Console / Terminal */}
-          <div className="ide-console-container">
-            <div className="ide-console-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Terminal size={14} />
-                <span>{isEs ? 'Consola E/S & Validación' : 'I/O Console & Testing'}</span>
-              </div>
-              <button
-                style={{ background: 'transparent', border: 'none', color: 'var(--pl-ink-2)', cursor: 'pointer', fontSize: '0.78rem' }}
-                onClick={() => setConsoleLogs([])}
-              >
-                {isEs ? 'Limpiar' : 'Clear'}
-              </button>
-            </div>
-
-            <div className="ide-console-body">
-              {/* Test Results Banner if active */}
-              {testResults && (
-                <div
-                  style={{
-                    marginBottom: '0.75rem',
-                    padding: '0.6rem',
-                    borderRadius: '6px',
-                    background: testResults.passed ? '#ecfdf5' : '#fef2f2',
-                    border: `1px solid ${testResults.passed ? '#a7f3d0' : '#fecaca'}`,
-                    color: testResults.passed ? '#065f46' : '#991b1b'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
-                    <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <CheckCircle size={15} />
-                      <span>
-                        {testResults.passed
-                          ? (isEs ? '¡Todos los casos de prueba superados!' : 'All test cases passed successfully!')
-                          : (isEs ? 'La solución no pasó todas las pruebas' : 'Solution failed some test cases')}
-                      </span>
-                    </div>
-                    <span style={{ fontSize: '0.68rem', opacity: 0.85, background: 'rgba(0,0,0,0.06)', padding: '2px 6px', borderRadius: '4px' }}>
-                      {isEs ? 'Evaluación formativa local' : 'Local formative assessment'}
-                    </span>
-                  </div>
-                  {testResults.details.map((d: any) => (
-                    <div key={d.index} style={{ fontSize: '0.78rem', marginTop: '0.2rem' }}>
-                      {isEs ? 'Caso' : 'Case'} {d.index} {d.isAdditional ? (isEs ? '(caso adicional formativo)' : '(additional formative case)') : ''}:{' '}
-                      {d.passed
-                        ? (isEs ? '✓ Correcto' : '✓ Passed')
-                        : `${isEs ? '✗ Error' : '✗ Failed'}. ${isEs ? 'Salida obtenida' : 'Actual'}: [${d.actualOutputs?.join(', ')}], ${isEs ? 'esperada' : 'expected'}: [${d.expectedOutputs?.join(', ')}]${d.error ? ` (${d.error})` : ''}`}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {consoleLogs.length === 0 && !isWaitingInput && !runtimeError && (
-                <div style={{ color: 'var(--pl-ink-3)', fontStyle: 'italic' }}>
-                  {isEs
-                    ? 'La salida de las sentencias Escribir y diagnósticos aparecerá aquí.'
-                    : 'Output from Escribir statements and runtime diagnostics will appear here.'}
-                </div>
-              )}
-
-              {consoleLogs.map((log, i) => (
-                <div key={i}>{log}</div>
-              ))}
-
-              {isWaitingInput && (
-                <div style={{ color: 'var(--pl-brand)', fontWeight: 600 }}>
-                  [{isEs ? 'Esperando entrada de usuario para sentencia Leer...' : 'Waiting for user input for Leer statement...'}]
-                </div>
-              )}
-            </div>
-
-            {/* Input prompt when Leer is active */}
-            {isWaitingInput && (
-              <form onSubmit={handleSendInput} className="ide-console-input-row">
-                <input
-                  type="text"
-                  className="ide-console-input"
-                  placeholder={isEs ? 'Introduce el valor y pulsa Enter...' : 'Type value and press Enter...'}
-                  value={interactiveInput}
-                  onChange={e => setInteractiveInput(e.target.value)}
-                  aria-label={isEs ? 'Entrada para comando Leer' : 'Input for Leer statement'}
-                  autoFocus
-                />
-                <button type="submit" className="pl-btn pl-btn--primary pl-btn--sm" style={{ marginLeft: '0.5rem' }}>
-                  {isEs ? 'Enviar' : 'Send'}
-                </button>
-              </form>
-            )}
-          </div>
-        </section>
-
-        {/* Right Panel: The 4 Synchronized Surfaces */}
-        <section className="ide-surfaces">
-          <div className="ide-surfaces-nav">
-            <button
-              className={`ide-surface-tab ${activeSurfaceTab === 'flow' ? 'ide-surface-tab--active' : ''}`}
-              onClick={() => setActiveSurfaceTab('flow')}
-            >
-              <GitBranch size={14} />
-              <span>{isEs ? 'Ordinograma' : 'Flowchart'}</span>
-            </button>
-            <button
-              className={`ide-surface-tab ${activeSurfaceTab === 'ns' ? 'ide-surface-tab--active' : ''}`}
-              onClick={() => setActiveSurfaceTab('ns')}
-            >
-              <Layers size={14} />
-              <span>{isEs ? 'Estructograma' : 'Structogram'}</span>
-            </button>
-            <button
-              className={`ide-surface-tab ${activeSurfaceTab === 'trace' ? 'ide-surface-tab--active' : ''}`}
-              onClick={() => setActiveSurfaceTab('trace')}
-            >
-              <Table size={14} />
-              <span>{isEs ? 'Prueba de Escritorio' : 'Trace Table'}</span>
-            </button>
-            <button
-              className={`ide-surface-tab ${activeSurfaceTab === 'uml' ? 'ide-surface-tab--active' : ''}`}
-              onClick={() => setActiveSurfaceTab('uml')}
-            >
-              <Box size={14} />
-              <span>{isEs ? 'Clases UML' : 'UML Classes'}</span>
-            </button>
-            <button
-              className={`ide-surface-tab ${activeSurfaceTab === 'export' ? 'ide-surface-tab--active' : ''}`}
-              onClick={() => setActiveSurfaceTab('export')}
-            >
-              <Code2 size={14} />
-              <span>Python & Rust</span>
-            </button>
-          </div>
-
-          <div className="ide-surface-content">
-            {syntaxError && (activeSurfaceTab === 'flow' || activeSurfaceTab === 'ns' || activeSurfaceTab === 'uml') && (
-              <div style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: 'var(--pl-ink-2)' }}>
-                <div style={{ color: '#ef4444', fontWeight: 600, marginBottom: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-                  <AlertCircle size={20} />
-                  <span>{isEs ? 'Diagrama no disponible por error sintáctico' : 'Diagram unavailable due to syntax error'}</span>
-                </div>
-                <p style={{ fontSize: '0.85rem', maxWidth: '420px', margin: '0 auto', lineHeight: 1.5 }}>
-                  {isEs
-                    ? 'El código contiene errores de sintaxis o caracteres no reconocidos. Corrige el código en el editor para sincronizar el diagrama automáticamente.'
-                    : 'The code contains syntax or lexical errors. Fix the code in the editor to automatically regenerate the diagram.'}
-                </p>
-              </div>
-            )}
-
-            {!syntaxError && activeSurfaceTab === 'flow' && (
-              <FlowchartView data={flowchartData} activeLine={activeLine} />
-            )}
-
-            {!syntaxError && activeSurfaceTab === 'ns' && (
-              <StructogramView blocks={structogramBlocks} activeLine={activeLine} />
-            )}
-
-            {activeSurfaceTab === 'trace' && (
-              <TraceTableView steps={traceSteps} currentStepIndex={currentStepIdx} />
-            )}
-
-            {!syntaxError && activeSurfaceTab === 'uml' && (
-              <UmlClassView classes={ast?.classes || []} />
-            )}
-
-            {activeSurfaceTab === 'export' && (
-              <CodeExportView code={code} />
-            )}
-          </div>
-        </section>
       </div>
     </div>
   );
 };
+
+export default IDEView;

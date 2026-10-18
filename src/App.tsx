@@ -1,26 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { IDEView } from './components/IDEView';
+import { safeStorageGet, safeStorageSet } from './engine/storage';
 
 export function App() {
   const [view, setView] = useState<'landing' | 'ide'>('landing');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('pseudoflow-theme');
+    const saved = safeStorageGet('pseudoflow-theme', '');
     if (saved === 'light' || saved === 'dark') return saved;
-    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'dark';
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
   const [lang, setLang] = useState<'es' | 'en'>(() => {
-    const saved = localStorage.getItem('pseudoflow-lang');
+    const saved = safeStorageGet('pseudoflow-lang', 'es');
     return saved === 'en' ? 'en' : 'es';
   });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('pseudoflow-theme', theme);
+    safeStorageSet('pseudoflow-theme', theme);
   }, [theme]);
 
   useEffect(() => {
-    localStorage.setItem('pseudoflow-lang', lang);
+    safeStorageSet('pseudoflow-lang', lang);
   }, [lang]);
 
   // Support direct hash navigation
