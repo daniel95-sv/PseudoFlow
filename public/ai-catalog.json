@@ -1,0 +1,53 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "PseudoFlow",
+    "description": "Editor interactivo de pseudocódigo en línea, diagramas de flujo SVG, estructogramas Nassi-Shneiderman y tablas de traza de escritorio en tiempo real.",
+    "url": "https://pseudoflow.pages.dev"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:pseudoflow.pages.dev:app:ide",
+      "displayName": "PseudoFlow Web IDE",
+      "type": "text/html",
+      "url": "https://pseudoflow.pages.dev/",
+      "description": "Interactive online pseudocode editor with step-by-step execution, synchronized ANSI flowcharts, Nassi-Shneiderman structograms, and live desk trace tables.",
+      "representativeQueries": [
+        "editor de pseudocodigo online",
+        "diagrama de flujo a partir de pseudocodigo",
+        "prueba de escritorio para algoritmos",
+        "ejecutar pseudocodigo paso a paso en el navegador",
+        "online pseudocode editor with flowchart"
+      ]
+    },
+    {
+      "identifier": "urn:air:pseudoflow.pages.dev:doc:llms",
+      "displayName": "PseudoFlow LLM Context",
+      "type": "text/markdown",
+      "url": "https://pseudoflow.pages.dev/llms.txt",
+      "description": "Standard markdown manifest following the llmstxt.org specification for LLMs, autonomous agents, and AI crawlers.",
+      "representativeQueries": [
+        "pseudoflow llms.txt",
+        "pseudoflow ai context"
+      ]
+    },
+    {
+      "identifier": "urn:air:pseudoflow.pages.dev:doc:llms-full",
+      "displayName": "PseudoFlow Full Language Specification",
+      "type": "text/markdown",
+      "url": "https://pseudoflow.pages.dev/llms-full.txt",
+      "description": "Comprehensive language grammar, syntax, semantics, and curriculum guide for AI models.",
+      "representativeQueries": [
+        "pseudoflow language grammar",
+        "pseudoflow pseudocode syntax"
+      ]
+    },
+    {
+      "identifier": "urn:air:pseudoflow.pages.dev:doc:sitemap",
+      "displayName": "PseudoFlow Sitemap",
+      "type": "application/xml",
+      "url": "https://pseudoflow.pages.dev/sitemap.xml",
+      "description": "Standard XML sitemap index of PseudoFlow public pages and sections."
+    }
+  ]
+}

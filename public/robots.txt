@@ -2,5 +2,8 @@
 User-agent: *
 Allow: /
 
+# LLM Context (https://llmstxt.org/)
+llms.txt: https://pseudoflow.pages.dev/llms.txt
+
 # Sitemap oficial
 Sitemap: https://pseudoflow.pages.dev/sitemap.xml

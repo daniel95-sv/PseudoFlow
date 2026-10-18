@@ -23,14 +23,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* Header */}
       <header className="site-header">
         <div className="pl-container site-header__row">
-          <a href="#" className="site-header__brand" onClick={e => { e.preventDefault(); }}>
-            <svg viewBox="0 1 95 95" width="28" height="28" className="site-header__symbol" fill="currentColor">
+          <a
+            href="#main-content"
+            className="site-header__brand"
+            aria-label={isEs ? 'PseudoFlow - Inicio' : 'PseudoFlow - Home'}
+            onClick={e => { e.preventDefault(); }}
+          >
+            <svg viewBox="0 1 95 95" width="28" height="28" className="site-header__symbol" fill="currentColor" aria-hidden="true" focusable="false">
               <path d="M 10,79 H 36 A 7,7 0 0 1 43,86 V 86 A 7,7 0 0 1 36,93 H 10 A 7,7 0 0 1 3,86 V 86 A 7,7 0 0 1 10,79 Z M 36,53 H 36 A 7,7 0 0 1 43,60 V 86 A 7,7 0 0 1 36,93 H 36 A 7,7 0 0 1 29,86 V 60 A 7,7 0 0 1 36,53 Z M 36,53 H 62 A 7,7 0 0 1 69,60 V 60 A 7,7 0 0 1 62,67 H 36 A 7,7 0 0 1 29,60 V 60 A 7,7 0 0 1 36,53 Z M 62,27 H 62 A 7,7 0 0 1 69,34 V 60 A 7,7 0 0 1 62,67 H 62 A 7,7 0 0 1 55,60 V 34 A 7,7 0 0 1 62,27 Z M 62,27 H 88 A 7,7 0 0 1 95,34 V 34 A 7,7 0 0 1 88,41 H 62 A 7,7 0 0 1 55,34 V 34 A 7,7 0 0 1 62,27 Z M 88,1 H 88 A 7,7 0 0 1 95,8 V 34 A 7,7 0 0 1 88,41 H 88 A 7,7 0 0 1 81,34 V 8 A 7,7 0 0 1 88,1 Z M 0,86 A 10,10 0 1 1 20,86 A 10,10 0 1 1 0,86 Z M 83.6584,3.1708 A 3,3 0 0 1 88,5.8541 L 88,22.1459 A 3,3 0 0 1 83.6584,24.8292 L 67.3666,16.6833 A 3,3 0 0 1 67.3666,11.3167 Z" />
             </svg>
             <span>PseudoFlow</span>
           </a>
 
-          <nav className="site-header__nav">
+          <nav className="site-header__nav" aria-label={isEs ? 'Navegación principal' : 'Main navigation'}>
             <a href="#editor" className="site-header__link">{isEs ? 'El editor' : 'The editor'}</a>
             <a href="#track" className="site-header__link">{isEs ? 'Ruta de aprendizaje' : 'Curriculum'}</a>
             <a href="#surfaces" className="site-header__link">{isEs ? 'Superficies' : 'Surfaces'}</a>
@@ -38,10 +43,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </nav>
 
           <div className="site-header__actions">
-            <button className="pl-icon-btn" onClick={onToggleTheme} title="Cambiar tema">
-              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+            <button
+              type="button"
+              className="pl-icon-btn"
+              onClick={onToggleTheme}
+              title={theme === 'dark' ? (isEs ? 'Cambiar a tema claro' : 'Switch to light theme') : (isEs ? 'Cambiar a tema oscuro' : 'Switch to dark theme')}
+              aria-label={theme === 'dark' ? (isEs ? 'Cambiar a tema claro' : 'Switch to light theme') : (isEs ? 'Cambiar a tema oscuro' : 'Switch to dark theme')}
+            >
+              {theme === 'dark' ? <Sun size={17} aria-hidden="true" /> : <Moon size={17} aria-hidden="true" />}
             </button>
             <button
+              type="button"
               className="pl-btn pl-btn--outline-field pl-btn--sm"
               onClick={onToggleLang}
               title={isEs ? 'Cambiar a inglés (EN)' : 'Switch to Spanish (ES)'}
@@ -49,8 +61,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             >
               {isEs ? 'EN' : 'ES'}
             </button>
-            <button className="pl-btn pl-btn--on-field pl-btn--sm" onClick={() => onOpenIDE()}>
-              <Play size={14} fill="currentColor" />
+            <button type="button" className="pl-btn pl-btn--on-field pl-btn--sm" onClick={() => onOpenIDE()}>
+              <Play size={14} fill="currentColor" aria-hidden="true" />
               <span>{isEs ? 'Abrir Editor Web' : 'Open Web IDE'}</span>
             </button>
           </div>
@@ -74,13 +86,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               : 'PseudoFlow executes your pseudocode statement by statement and keeps the same step highlighted across code, flowchart, structogram, and desk trace table. Includes 15 modules and 95 auto-checking exercises.'}
           </p>
           <div className="home-hero__actions">
-            <button className="pl-btn pl-btn--on-field" onClick={() => onOpenIDE()}>
-              <Play size={18} fill="currentColor" />
+            <button type="button" className="pl-btn pl-btn--on-field" onClick={() => onOpenIDE()}>
+              <Play size={18} fill="currentColor" aria-hidden="true" />
               <span>{isEs ? 'Probar IDE en el Navegador' : 'Try Web IDE'}</span>
             </button>
             <a href="#track" className="pl-btn pl-btn--outline-field">
               <span>{isEs ? 'Ver Ruta de 15 Módulos' : 'Explore Curriculum'}</span>
-              <ArrowRight size={16} />
+              <ArrowRight size={16} aria-hidden="true" />
             </a>
           </div>
           <p className="home-hero__requirements pl-mono">
@@ -133,8 +145,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 DemostracionGuiada.pseudo
               </span>
               <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                <button className="pl-btn pl-btn--primary pl-btn--sm" onClick={() => onOpenIDE()}>
-                  <Play size={13} fill="currentColor" />
+                <button type="button" className="pl-btn pl-btn--primary pl-btn--sm" onClick={() => onOpenIDE()}>
+                  <Play size={13} fill="currentColor" aria-hidden="true" />
                   <span>{isEs ? 'Interactuar' : 'Interact'}</span>
                 </button>
               </div>
@@ -529,8 +541,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </a>
             </div>
           </div>
-          <button className="pl-btn pl-btn--on-field" onClick={() => onOpenIDE()}>
-            <Play size={15} fill="currentColor" />
+          <button type="button" className="pl-btn pl-btn--on-field" onClick={() => onOpenIDE()}>
+            <Play size={15} fill="currentColor" aria-hidden="true" />
             <span>{isEs ? 'Abrir Editor Web' : 'Open Web IDE'}</span>
           </button>
         </div>

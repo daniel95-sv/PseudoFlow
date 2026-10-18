@@ -1142,8 +1142,14 @@ endAlgorithm
       <div className="ide-toolbar">
         {/* Left: Home + 2-col drawer toggle + Title */}
         <div className="ide-toolbar__group">
-          <button className="pl-btn pl-btn--outline pl-btn--sm" onClick={onBackToHome} title={isEs ? 'Volver al inicio' : 'Back to Home'}>
-            <Home size={15} />
+          <button
+            type="button"
+            className="pl-btn pl-btn--outline pl-btn--sm"
+            onClick={onBackToHome}
+            title={isEs ? 'Volver al inicio' : 'Back to Home'}
+            aria-label={isEs ? 'Volver al inicio' : 'Back to Home'}
+          >
+            <Home size={15} aria-hidden="true" />
             <span className="ide-btn-label-desktop">{isEs ? 'Inicio' : 'Home'}</span>
           </button>
 
@@ -1295,8 +1301,9 @@ endAlgorithm
               className={`pl-icon-btn ${isMobileMenuOpen ? 'pl-icon-btn--active' : ''}`}
               onClick={() => setIsMobileMenuOpen(prev => !prev)}
               title={isEs ? 'Opciones adicionales' : 'More options'}
+              aria-label={isEs ? 'Opciones adicionales' : 'More options'}
             >
-              <Settings size={16} />
+              <Settings size={16} aria-hidden="true" />
             </button>
           )}
 
@@ -1333,10 +1340,17 @@ endAlgorithm
             </div>
           )}
 
-          <button className="pl-icon-btn" onClick={onToggleTheme} title={isEs ? 'Cambiar tema' : 'Toggle theme'}>
-            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+          <button
+            type="button"
+            className="pl-icon-btn"
+            onClick={onToggleTheme}
+            title={theme === 'dark' ? (isEs ? 'Cambiar a tema claro' : 'Switch to light theme') : (isEs ? 'Cambiar a tema oscuro' : 'Switch to dark theme')}
+            aria-label={theme === 'dark' ? (isEs ? 'Cambiar a tema claro' : 'Switch to light theme') : (isEs ? 'Cambiar a tema oscuro' : 'Switch to dark theme')}
+          >
+            {theme === 'dark' ? <Sun size={15} aria-hidden="true" /> : <Moon size={15} aria-hidden="true" />}
           </button>
           <button
+            type="button"
             className="pl-btn pl-btn--outline pl-btn--sm"
             onClick={handleToggleLanguage}
             style={{ minWidth: 34, padding: '0.28rem 0.45rem' }}
@@ -1355,8 +1369,14 @@ endAlgorithm
           <div className="ide-mobile-menu">
             <div className="ide-mobile-menu__header">
               <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{isEs ? 'Opciones del Editor' : 'Editor Options'}</span>
-              <button type="button" className="pl-icon-btn" onClick={() => setIsMobileMenuOpen(false)}>
-                <X size={15} />
+              <button
+                type="button"
+                className="pl-icon-btn"
+                onClick={() => setIsMobileMenuOpen(false)}
+                title={isEs ? 'Cerrar opciones' : 'Close options'}
+                aria-label={isEs ? 'Cerrar opciones' : 'Close options'}
+              >
+                <X size={15} aria-hidden="true" />
               </button>
             </div>
             <div className="ide-mobile-menu__body">
@@ -1485,8 +1505,9 @@ endAlgorithm
                 className="pl-icon-btn"
                 onClick={() => setIsSidebarDrawerOpen(false)}
                 title={isEs ? 'Cerrar panel' : 'Close panel'}
+                aria-label={isEs ? 'Cerrar panel de módulos y retos' : 'Close challenges panel'}
               >
-                <X size={16} />
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
             {renderSidebarContent()}
@@ -1605,8 +1626,9 @@ endAlgorithm
             className="pl-btn pl-btn--outline pl-btn--sm"
             onClick={() => resetExecution()}
             title={isEs ? 'Reiniciar' : 'Reset'}
+            aria-label={isEs ? 'Reiniciar ejecución' : 'Reset execution'}
           >
-            <RotateCcw size={14} />
+            <RotateCcw size={14} aria-hidden="true" />
           </button>
         </div>
 

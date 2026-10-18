@@ -1,0 +1,23 @@
+# PseudoFlow: Editor de Pseudocódigo Online y Diagramas de Flujo
+
+> PseudoFlow es una aplicación web interactiva e independiente para aprender programación y algoritmos. Ejecuta pseudocódigo sentencia a sentencia en tiempo real sincronizando cuatro superficies simultáneas: código con trazado activo, diagrama de flujo (ordinograma) SVG generado desde el AST, estructograma Nassi-Shneiderman y tabla de memoria / prueba de escritorio. Incluye una ruta pedagógica de 15 módulos con 95 ejercicios evaluados automáticamente en el cliente, soporte para programación orientada a objetos (POO) con diagramas UML, y transpilación a Python y Rust.
+
+## Recursos Principales
+
+- [PseudoFlow Web App](https://pseudoflow.pages.dev/): Editor interactivo y entorno de ejecución accesible directamente en el navegador sin dependencias de servidor.
+- [Ruta Pedagógica Curricular](https://pseudoflow.pages.dev/#track): Currículo estructurado en 3 tramos (Fundamentos, Programación Estructurada y Objetos) con 15 módulos formativos y 95 ejercicios con casos de prueba didácticos.
+- [Superficies y Diagramas Sincronizados](https://pseudoflow.pages.dev/#surfaces): Explicación técnica de las 4 proyecciones simultáneas de ejecución (Código, Ordinograma SVG, Estructograma Nassi-Shneiderman y Tabla de Traza).
+- [Características del Motor](https://pseudoflow.pages.dev/#features): Intérprete 100% en el cliente, transpilación directa a Python y Rust, y trazado visual de identidad de objetos y aliasing.
+- [Repositorio Oficial en GitHub](https://github.com/daniel95-sv/PseudoFlow): Código fuente de la plataforma, gramática formal, especificaciones de lenguaje y pruebas unitarias.
+
+## Documentación y Contexto para Agentes
+
+- [Contexto Completo y Gramática (llms-full.txt)](https://pseudoflow.pages.dev/llms-full.txt): Especificación detallada de la gramática de pseudocódigo en español e inglés, semántica de ejecución, y guía completa de módulos para modelos de lenguaje.
+- [Catálogo de Recursos Agénticos (ai-catalog.json)](https://pseudoflow.pages.dev/ai-catalog.json): Manifiesto estándar de Agentic Resource Discovery (ARD 1.0) para agentes de IA autónomos y registros.
+- [Mapa del Sitio (sitemap.xml)](https://pseudoflow.pages.dev/sitemap.xml): Índice canónico de páginas y secciones accesibles.
+
+## Módulos de Aprendizaje
+
+- [Tramo A - Fundamentos](https://pseudoflow.pages.dev/#track): Concepto formal de algoritmo (CON-A1) y la máquina nocional con casillas de memoria (CON-A2).
+- [Tramo B - Programación Estructurada](https://pseudoflow.pages.dev/#track): Variables y asignación (CON-B1), entrada/salida (CON-B2), selección Si/Segun (CON-B3), bucles Mientras/Repetir/Para (CON-B4), arreglos y matrices 2D (CON-B5), subprogramas y parámetros por valor/referencia (CON-B6), recursión (CON-B7) y lectura desde diagramas (CON-B8).
+- [Tramo C - Programación Orientada a Objetos](https://pseudoflow.pages.dev/#track): Encapsulamiento (CON-C1), clases y constructores (CON-C2), identidad de instancias y aliasing (CON-C3), herencia y polimorfismo dinámico (CON-C4), y diseño de responsabilidades (CON-C5).

@@ -1,0 +1,155 @@
+# PseudoFlow: Especificación Completa del Lenguaje y Entorno
+
+> Guía exhaustiva de sintaxis, semántica de ejecución, modelo de memoria y catálogo formativo de PseudoFlow para modelos de lenguaje extenso (LLMs) y agentes autónomos.
+
+## 1. Visión General del Proyecto
+
+PseudoFlow es un entorno de desarrollo integrado (IDE) y simulador pedagógico para la enseñanza de la algoritmia y la programación. Se ejecuta íntegramente en el navegador web (100% en el cliente, sin dependencias de servidor ni telemetría invasiva), ofreciendo ejecución paso a paso con resaltado sincronizado entre:
+1. El editor de código pseudocódigo.
+2. El ordinograma (diagrama de flujo estándar ANSI/ISO) generado en SVG vectorial desde el AST.
+3. El estructograma (diagrama de Nassi-Shneiderman) con cajas y anidamiento jerárquico.
+4. La tabla de prueba de escritorio (traza de memoria) con valores por variable y paso de ejecución.
+5. El diagrama de clases UML interactivo cuando se declaran clases y objetos.
+
+URL de la aplicación: https://pseudoflow.pages.dev/
+Repositorio: https://github.com/daniel95-sv/PseudoFlow
+
+## 2. Sintaxis y Palabras Clave Soportadas
+
+El motor es totalmente bilingüe (Español / Inglés). Admite tanto la sintaxis clásica de PSeInt / Iberoamérica como la sintaxis estándar internacional en inglés:
+
+### Definición de Proceso / Algoritmo
+- Español: `Proceso NombreAlgoritmo` ... `FinProceso` (o `Algoritmo` ... `FinAlgoritmo`)
+- English: `algorithm Name` ... `endAlgorithm`
+
+### Tipos de Datos y Declaración
+- Español: `Definir variable Como Entero | Real | Caracter | Cadena | Logico;`
+- English: `define variable as integer | real | character | string | boolean;`
+
+### Asignación
+- Sintaxis: `variable <- expresion;` o `variable := expresion;` o `variable = expresion;`
+
+### Entrada y Salida
+- Español: `Escribir expr1, expr2;` y `Leer variable;`
+- English: `write expr1, expr2;` y `read variable;`
+
+### Estructuras Condicionales
+- Español:
+  ```pseudocode
+  Si condicion Entonces
+    // bloque si verdadero
+  Sino
+    // bloque si falso
+  FinSi
+  ```
+- English:
+  ```pseudocode
+  if condition then
+    // true branch
+  else
+    // false branch
+  endIf
+  ```
+
+### Selección Múltiple
+- Español:
+  ```pseudocode
+  Segun variable Hacer
+    caso1:
+      // acciones
+    caso2:
+      // acciones
+    De Otro Modo:
+      // acciones por defecto
+  FinSegun
+  ```
+- English:
+  ```pseudocode
+  switch variable
+    case 1:
+      // actions
+    default:
+      // default actions
+  endSwitch
+  ```
+
+### Bucles e Iteración
+1. Mientras / While:
+   - Español: `Mientras condicion Hacer` ... `FinMientras`
+   - English: `while condition do` ... `endWhile`
+2. Repetir-Hasta Que / Repeat-Until:
+   - Español: `Repetir` ... `Hasta Que condicion;`
+   - English: `repeat` ... `until condition;`
+3. Para / For:
+   - Español: `Para variable <- inicio Hasta fin Con Paso paso Hacer` ... `FinPara`
+   - English: `for variable <- start to finish step inc do` ... `endFor`
+
+### Arreglos y Matrices
+- Español: `Dimension matriz[10, 10];` o `Dimension vector[5];`
+- English: `dimension array[10];`
+- Indexación: Base 1 (configurable y adaptable a base 0).
+
+### Subprogramas (Funciones y Procedimientos)
+- Español:
+  ```pseudocode
+  SubProceso resultado <- MiFuncion(param1, PorReferencia param2)
+    // cuerpo
+  FinSubProceso
+  ```
+- English:
+  ```pseudocode
+  function result <- MyFunction(param1, byReference param2)
+    // body
+  endFunction
+  ```
+
+### Programación Orientada a Objetos (POO)
+- Español:
+  ```pseudocode
+  Clase Persona
+    publico nombre: Cadena;
+    privado edad: Entero;
+
+    Constructor(unNombre, unaEdad)
+      nombre <- unNombre;
+      edad <- unaEdad;
+    FinConstructor
+
+    publico Metodo Saludar()
+      Escribir "Hola, soy ", nombre;
+    FinMetodo
+  FinClase
+  ```
+- Creación de instancias: `p <- nuevo Persona("Ada", 36);`
+- Despacho de métodos: `p.Saludar();`
+
+## 3. Catálogo Curricular (15 Módulos y 95 Ejercicios)
+
+- **Tramo A: Fundamentos**
+  - CON-A1: Qué es un algoritmo (precisión, finitud, determinismo).
+  - CON-A2: La máquina nocional (memoria de casillas, CPU, secuenciador).
+- **Tramo B: Programación Estructurada**
+  - CON-B1: Datos, variables y asignación.
+  - CON-B2: Entrada y salida interactiva.
+  - CON-B3: Selección (Si, Sino, Segun).
+  - CON-B4: Bucles e iteración (Mientras, Repetir, Para).
+  - CON-B5: Arreglos unidimensionales y matrices 2D.
+  - CON-B6: Subprogramas, modularización y paso por referencia.
+  - CON-B7: Recursión y pila de llamadas (call stack).
+  - CON-B8: Lectura y reconstrucción de programas desde diagramas.
+- **Tramo C: Programación Orientada a Objetos**
+  - CON-C1: Motivación de objetos y encapsulamiento.
+  - CON-C2: Clases, visibilidad (publico/privado) y constructor.
+  - CON-C3: Instancia, identidad y aliasing de referencias en memoria.
+  - CON-C4: Herencia, sobreescritura y despacho dinámico de métodos.
+  - CON-C5: Diseño orientado a objetos y reparto de responsabilidades.
+
+## 4. Transpilación a Código de Producción
+PseudoFlow incluye un motor transpilador que proyecta el AST a:
+- Python 3
+- Rust (con tipos e inferencia de tipos estáticos)
+Permitiendo a los estudiantes comprobar la correspondencia directa entre conceptos algorítmicos y lenguajes industriales.
+
+## 5. Contacto y Contribuciones
+- Web: https://pseudoflow.pages.dev/
+- Repositorio: https://github.com/daniel95-sv/PseudoFlow
