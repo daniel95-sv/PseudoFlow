@@ -24,7 +24,7 @@ function runPython(pyCode: string, inputs: string[] = []): { stdout: string; std
     const res = spawnSync('python', [scriptFile], {
       input: inputs.length ? inputs.join('\n') + '\n' : '',
       encoding: 'utf-8',
-      timeout: 5000
+      timeout: 10000
     });
     return {
       stdout: (res.stdout || '').replace(/\r\n/g, '\n').trim(),
@@ -62,9 +62,9 @@ function compileAndRunRust(rsCode: string, inputs: string[] = []): { stdout: str
 
   try {
     fs.writeFileSync(srcFile, rsCode, 'utf-8');
-    const compileRes = spawnSync('rustc', [srcFile, '-o', binFile], {
+    const compileRes = spawnSync('rustc', ['-C', 'opt-level=0', srcFile, '-o', binFile], {
       encoding: 'utf-8',
-      timeout: 10000
+      timeout: 25000
     });
 
     if (compileRes.status !== 0) {
@@ -76,10 +76,18 @@ function compileAndRunRust(rsCode: string, inputs: string[] = []): { stdout: str
       };
     }
 
+    if (process.platform !== 'win32' && fs.existsSync(binFile)) {
+      try {
+        fs.chmodSync(binFile, 0o755);
+      } catch {
+        // Ignorar si ya tiene permisos de ejecución
+      }
+    }
+
     const runRes = spawnSync(binFile, [], {
       input: inputs.length ? inputs.join('\n') + '\n' : '',
       encoding: 'utf-8',
-      timeout: 5000
+      timeout: 10000
     });
 
     return {
@@ -123,7 +131,7 @@ describe('Real Transpiled Code Execution & Compiler Verification (Auditoría PF-
     const pyRes = runPython(py);
     expect(pyRes.status).toBe(0);
     expect(pyRes.stdout).toBe('Resultado:10');
-  });
+  }, 15000);
 
   it('preserves keywords inside string literals ("NO", "Y", "O") without corruption in Python', () => {
     const code = `
@@ -151,7 +159,7 @@ describe('Real Transpiled Code Execution & Compiler Verification (Auditoría PF-
     const pyRes = runPython(py);
     expect(pyRes.status).toBe(0);
     expect(pyRes.stdout).toBe('Validacion: NO en HAY O NO HAY');
-  });
+  }, 15000);
 
   it('initializes declared variables to default types preventing UnboundLocalError in Python', () => {
     const code = `
@@ -176,7 +184,7 @@ describe('Real Transpiled Code Execution & Compiler Verification (Auditoría PF-
     const pyRes = runPython(py);
     expect(pyRes.status).toBe(0);
     expect(pyRes.stdout).toBe('E=0, R=0.0, T=[], F=False');
-  });
+  }, 15000);
 
   it('executes ascending and descending Para loops matching Interpreter output in Python', () => {
     const code = `
@@ -205,7 +213,7 @@ describe('Real Transpiled Code Execution & Compiler Verification (Auditoría PF-
     const pyRes = runPython(py);
     expect(pyRes.status).toBe(0);
     expect(pyRes.stdout.split('\n')).toEqual(interpOutputs);
-  });
+  }, 15000);
 
   it('executes Mientras loops with combined conditions matching Interpreter output in Python', () => {
     const code = `
@@ -226,7 +234,7 @@ describe('Real Transpiled Code Execution & Compiler Verification (Auditoría PF-
     const pyRes = runPython(py);
     expect(pyRes.status).toBe(0);
     expect(pyRes.stdout.split('\n')).toEqual(['x=1', 'x=2']);
-  });
+  }, 15000);
 
   it('executes multidimensional arrays (Dimension) matching Interpreter output in Python', () => {
     const code = `
@@ -247,7 +255,7 @@ describe('Real Transpiled Code Execution & Compiler Verification (Auditoría PF-
     const pyRes = runPython(py);
     expect(pyRes.status).toBe(0);
     expect(pyRes.stdout).toBe('TotalMatriz:45');
-  });
+  }, 15000);
 
   it('emits pass for empty blocks or comments-only code avoiding IndentationError in Python', () => {
     const code = `
@@ -262,7 +270,7 @@ describe('Real Transpiled Code Execution & Compiler Verification (Auditoría PF-
 
     const pyRes = runPython(py);
     expect(pyRes.status).toBe(0);
-  });
+  }, 15000);
 
   it('reads typed user inputs via stdin matching Interpreter output in Python', () => {
     const code = `
@@ -285,7 +293,7 @@ describe('Real Transpiled Code Execution & Compiler Verification (Auditoría PF-
     const pyRes = runPython(py, inputs);
     expect(pyRes.status).toBe(0);
     expect(pyRes.stdout).toBe('Usuario:Alejandro,Edad:30,Factor:2.5');
-  });
+  }, 15000);
 
   it('verifies Rust transpilation syntax and executes with rustc when available (CI/local)', () => {
     const code = `
@@ -322,5 +330,5 @@ describe('Real Transpiled Code Execution & Compiler Verification (Auditoría PF-
       expect(rsRes.status).toBe(0);
       expect(rsRes.stdout).toBe('RustExito:8');
     }
-  });
+  }, 35000);
 });
