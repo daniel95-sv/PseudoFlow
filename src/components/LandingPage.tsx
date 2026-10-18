@@ -2,7 +2,7 @@ import React from 'react';
 import { Play, ArrowRight, Sun, Moon } from 'lucide-react';
 
 interface LandingPageProps {
-  onOpenIDE: () => void;
+  onOpenIDE: (moduleId?: string) => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   lang: 'es' | 'en';
@@ -44,7 +44,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button className="pl-btn pl-btn--outline-field pl-btn--sm" onClick={onToggleLang}>
               {isEs ? 'EN' : 'ES'}
             </button>
-            <button className="pl-btn pl-btn--on-field pl-btn--sm" onClick={onOpenIDE}>
+            <button className="pl-btn pl-btn--on-field pl-btn--sm" onClick={() => onOpenIDE()}>
               <Play size={14} fill="currentColor" />
               <span>{isEs ? 'Abrir Editor Web' : 'Open Web IDE'}</span>
             </button>
@@ -69,7 +69,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               : 'PseudoFlow executes your pseudocode statement by statement and keeps the same step highlighted across code, flowchart, structogram, and desk trace table. Includes 15 modules and 95 auto-checking exercises.'}
           </p>
           <div className="home-hero__actions">
-            <button className="pl-btn pl-btn--on-field" onClick={onOpenIDE}>
+            <button className="pl-btn pl-btn--on-field" onClick={() => onOpenIDE()}>
               <Play size={18} fill="currentColor" />
               <span>{isEs ? 'Probar IDE en el Navegador' : 'Try Web IDE'}</span>
             </button>
@@ -128,7 +128,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 DemostracionGuiada.pseudo
               </span>
               <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                <button className="pl-btn pl-btn--primary pl-btn--sm" onClick={onOpenIDE}>
+                <button className="pl-btn pl-btn--primary pl-btn--sm" onClick={() => onOpenIDE()}>
                   <Play size={13} fill="currentColor" />
                   <span>{isEs ? 'Interactuar' : 'Interact'}</span>
                 </button>
@@ -289,9 +289,38 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   ? 'Qué tiene que cumplir una secuencia de pasos para llamarse algoritmo, y la máquina nocional para razonar sobre casillas de memoria.'
                   : 'What makes an algorithm, and the notional machine for reasoning about memory boxes.'}
               </p>
-              <ul style={{ color: '#8be4e8', fontSize: '0.85rem', paddingLeft: '1.2rem', fontFamily: 'var(--pl-font-mono)' }}>
-                <li>CON-A1: Qué es un algoritmo</li>
-                <li>CON-A2: La máquina nocional</li>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.35rem', fontFamily: 'var(--pl-font-mono)', fontSize: '0.84rem' }}>
+                {[
+                  { id: 'CON-A1', title: isEs ? 'Qué es un algoritmo' : 'What is an algorithm' },
+                  { id: 'CON-A2', title: isEs ? 'La máquina nocional' : 'The notional machine' }
+                ].map(m => (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenIDE(m.id)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#8be4e8',
+                        padding: '0.25rem 0.4rem',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        transition: 'background 0.15s ease'
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(139, 228, 232, 0.12)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      title={isEs ? `Abrir ${m.id} en el editor` : `Open ${m.id} in editor`}
+                    >
+                      <span>• {m.id}: {m.title}</span>
+                      <ArrowRight size={12} style={{ opacity: 0.6 }} />
+                    </button>
+                  </li>
+                ))}
               </ul>
             </article>
 
@@ -305,15 +334,44 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   ? 'Datos, decisiones, los tres bucles (Mientras, Repetir, Para), vectores, matrices, subprogramas con paso por referencia y recursión.'
                   : 'Data, decisions, 3 loop variants, 1D/2D arrays, subprograms with reference parameters, and recursion.'}
               </p>
-              <ul style={{ color: '#8be4e8', fontSize: '0.85rem', paddingLeft: '1.2rem', fontFamily: 'var(--pl-font-mono)' }}>
-                <li>CON-B1: Datos, variables y asignación</li>
-                <li>CON-B2: Entrada y salida (Leer / Escribir)</li>
-                <li>CON-B3: Selección (Si / Segun)</li>
-                <li>CON-B4: Iteración (Mientras, Repetir, Para)</li>
-                <li>CON-B5: Arreglos y matrices 2D</li>
-                <li>CON-B6: Subprogramas y parámetros</li>
-                <li>CON-B7: Recursión y pila de llamadas</li>
-                <li>CON-B8: Leer programas desde diagramas</li>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.35rem', fontFamily: 'var(--pl-font-mono)', fontSize: '0.84rem' }}>
+                {[
+                  { id: 'CON-B1', title: isEs ? 'Datos, variables y asignación' : 'Data, variables & assignment' },
+                  { id: 'CON-B2', title: isEs ? 'Entrada y salida (Leer / Escribir)' : 'I/O (Leer / Escribir)' },
+                  { id: 'CON-B3', title: isEs ? 'Selección (Si / Segun)' : 'Branching (Si / Segun)' },
+                  { id: 'CON-B4', title: isEs ? 'Iteración (Mientras, Repetir, Para)' : 'Loops (Mientras, Repetir, Para)' },
+                  { id: 'CON-B5', title: isEs ? 'Arreglos y matrices 2D' : 'Arrays & 2D matrices' },
+                  { id: 'CON-B6', title: isEs ? 'Subprogramas y parámetros' : 'Subprograms & parameters' },
+                  { id: 'CON-B7', title: isEs ? 'Recursión y pila de llamadas' : 'Recursion & call stack' },
+                  { id: 'CON-B8', title: isEs ? 'Leer programas desde diagramas' : 'Read programs from diagrams' }
+                ].map(m => (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenIDE(m.id)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#8be4e8',
+                        padding: '0.25rem 0.4rem',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        transition: 'background 0.15s ease'
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(139, 228, 232, 0.12)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      title={isEs ? `Abrir ${m.id} en el editor` : `Open ${m.id} in editor`}
+                    >
+                      <span>• {m.id}: {m.title}</span>
+                      <ArrowRight size={12} style={{ opacity: 0.6 }} />
+                    </button>
+                  </li>
+                ))}
               </ul>
             </article>
 
@@ -327,12 +385,41 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   ? 'De variables sueltas a estado y conducta. Identidad de instancias, aliasing, herencia y despacho dinámico de métodos.'
                   : 'From loose variables to state and behavior. Instance identity, aliasing, inheritance, and dynamic dispatch.'}
               </p>
-              <ul style={{ color: '#8be4e8', fontSize: '0.85rem', paddingLeft: '1.2rem', fontFamily: 'var(--pl-font-mono)' }}>
-                <li>CON-C1: Por qué objetos y encapsulamiento</li>
-                <li>CON-C2: Clase, visibilidad y constructor</li>
-                <li>CON-C3: Instancia, identidad y aliasing</li>
-                <li>CON-C4: Herencia y despacho dinámico</li>
-                <li>CON-C5: Diseño y responsabilidades</li>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.35rem', fontFamily: 'var(--pl-font-mono)', fontSize: '0.84rem' }}>
+                {[
+                  { id: 'CON-C1', title: isEs ? 'Por qué objetos y encapsulamiento' : 'Why objects & encapsulation' },
+                  { id: 'CON-C2', title: isEs ? 'Clase, visibilidad y constructor' : 'Class, visibility & constructor' },
+                  { id: 'CON-C3', title: isEs ? 'Instancia, identidad y aliasing' : 'Instance, identity & aliasing' },
+                  { id: 'CON-C4', title: isEs ? 'Herencia y despacho dinámico' : 'Inheritance & dynamic dispatch' },
+                  { id: 'CON-C5', title: isEs ? 'Diseño y responsabilidades' : 'Design & responsibilities' }
+                ].map(m => (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenIDE(m.id)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#8be4e8',
+                        padding: '0.25rem 0.4rem',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        transition: 'background 0.15s ease'
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(139, 228, 232, 0.12)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      title={isEs ? `Abrir ${m.id} en el editor` : `Open ${m.id} in editor`}
+                    >
+                      <span>• {m.id}: {m.title}</span>
+                      <ArrowRight size={12} style={{ opacity: 0.6 }} />
+                    </button>
+                  </li>
+                ))}
               </ul>
             </article>
           </div>
@@ -435,7 +522,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </a>
             </div>
           </div>
-          <button className="pl-btn pl-btn--on-field" onClick={onOpenIDE}>
+          <button className="pl-btn pl-btn--on-field" onClick={() => onOpenIDE()}>
             <Play size={15} fill="currentColor" />
             <span>{isEs ? 'Abrir Editor Web' : 'Open Web IDE'}</span>
           </button>

@@ -39,8 +39,10 @@ export class Interpreter {
   private callStack: Array<{
     name: string;
     variables: Map<string, any>;
+    variableTypes?: Map<string, string>;
     references?: Map<string, { scope: Map<string, any>; key: string }>;
     thisInstance?: ObjectInstance;
+    currentClass?: ClassNode;
   }> = [];
 
   public static readonly MAX_STEPS = 50_000;
@@ -60,6 +62,7 @@ export class Interpreter {
   public isInteractive: boolean = false;
   private totalAllocatedArrayElements: number = 0;
   private startTime: number = 0;
+  private lastOutputHadNoNewline: boolean = false;
 
   private objectCounter: number = 0;
   private inputs: string[] = [];
@@ -91,15 +94,18 @@ export class Interpreter {
     // Initialize global / main frame
     this.callStack.push({
       name: program.name,
-      variables: new Map()
+      variables: new Map(),
+      variableTypes: new Map()
     });
   }
 
   public reset(): void {
     this.callStack = [{
       name: this.program.name,
-      variables: new Map()
+      variables: new Map(),
+      variableTypes: new Map()
     }];
+    this.lastOutputHadNoNewline = false;
     this.objectCounter = 0;
     this.inputs = [];
     this.outputs = [];
@@ -232,6 +238,7 @@ export class Interpreter {
         const decl = stmt as DeclarationNode;
         const initialVal = this.defaultValueFor(decl.dataType);
         this.assignValue(decl.variableName, initialVal);
+        this.currentFrame()?.variableTypes?.set(decl.variableName.toLowerCase(), decl.dataType);
         const step: TraceStep = {
           stepNumber: this.stepNumber,
           lineNumber: decl.line,
@@ -267,6 +274,7 @@ export class Interpreter {
         this.totalAllocatedArrayElements += totalElements;
         const arr = this.createArray(sizes, this.defaultValueFor(dim.dataType));
         this.assignValue(dim.name, arr);
+        this.currentFrame()?.variableTypes?.set(dim.name.toLowerCase(), dim.dataType);
         const step: TraceStep = {
           stepNumber: this.stepNumber,
           lineNumber: dim.line,
@@ -287,13 +295,24 @@ export class Interpreter {
         if (assign.target.isThis) {
           const inst = this.currentFrame()?.thisInstance;
           if (inst && assign.target.member) {
-            inst.fields[assign.target.member] = value;
-            varName = `Este.${assign.target.member}`;
+            const parts = assign.target.member.split('.');
+            let obj: any = inst;
+            for (let p = 0; p < parts.length - 1; p++) {
+              if (obj && obj.fields) obj = obj.fields[parts[p]];
+            }
+            if (obj && obj.fields) {
+              obj.fields[parts[parts.length - 1]] = value;
+              varName = `Este.${assign.target.member}`;
+            }
           }
         } else if (assign.target.member) {
-          const obj = this.resolveVariable(assign.target.name);
-          if (obj && typeof obj === 'object' && obj.fields) {
-            obj.fields[assign.target.member] = value;
+          const parts = assign.target.member.split('.');
+          let obj: any = this.resolveVariable(assign.target.name);
+          for (let p = 0; p < parts.length - 1; p++) {
+            if (obj && obj.fields) obj = obj.fields[parts[p]];
+          }
+          if (obj && obj.fields) {
+            obj.fields[parts[parts.length - 1]] = value;
             varName = `${assign.target.name}.${assign.target.member}`;
           }
         } else if (assign.target.indices && assign.target.indices.length > 0) {
@@ -329,14 +348,46 @@ export class Interpreter {
             this.inputTarget = target.name;
             val = ''; // empty string until input provided
           }
-          this.assignValue(target.name, val);
+
+          let varName = target.name;
+          if (target.isThis) {
+            const inst = this.currentFrame()?.thisInstance;
+            if (inst && target.member) {
+              const parts = target.member.split('.');
+              let obj: any = inst;
+              for (let p = 0; p < parts.length - 1; p++) {
+                if (obj && obj.fields) obj = obj.fields[parts[p]];
+              }
+              if (obj && obj.fields) {
+                obj.fields[parts[parts.length - 1]] = val;
+                varName = `Este.${target.member}`;
+              }
+            }
+          } else if (target.member) {
+            const parts = target.member.split('.');
+            let obj: any = this.resolveVariable(target.name);
+            for (let p = 0; p < parts.length - 1; p++) {
+              if (obj && obj.fields) obj = obj.fields[parts[p]];
+            }
+            if (obj && obj.fields) {
+              obj.fields[parts[parts.length - 1]] = val;
+              varName = `${target.name}.${target.member}`;
+            }
+          } else if (target.indices && target.indices.length > 0) {
+            const idxs = target.indices.map(i => Math.floor(this.evalExpression(i)));
+            const arr = this.resolveVariable(target.name);
+            this.setArrayElement(arr, idxs, val);
+            varName = `${target.name}[${idxs.join(', ')}]`;
+          } else {
+            this.assignValue(target.name, val);
+          }
 
           const step: TraceStep = {
             stepNumber: this.stepNumber,
             lineNumber: read.line,
-            action: `Leer ${target.name} (= ${this.formatValue(val)})`,
+            action: `Leer ${varName} (= ${this.formatValue(val)})`,
             variables: this.getVariablesSnapshot(),
-            changedVar: target.name
+            changedVar: varName
           };
           this.recordStep(step);
           yield step;
@@ -346,13 +397,23 @@ export class Interpreter {
 
       case 'Write': {
         const write = stmt as WriteNode;
-        const lineParts = write.expressions.map(e => this.formatValueForPrint(this.evalExpression(e)));
+        const lineParts = write.expressions.map(e => {
+          const val = this.evalExpression(e);
+          const isReal = this.isRealExpression(e);
+          return this.formatValueForPrint(val, isReal);
+        });
         const fullOutput = lineParts.join('');
-        if (this.outputs.length < Interpreter.MAX_OUTPUT_LINES) {
-          this.outputs.push(fullOutput);
-        } else if (this.outputs.length === Interpreter.MAX_OUTPUT_LINES) {
-          this.outputs.push(`[Salida truncada: se alcanzó el límite de ${Interpreter.MAX_OUTPUT_LINES} líneas de salida]`);
+
+        if (this.lastOutputHadNoNewline && this.outputs.length > 0) {
+          this.outputs[this.outputs.length - 1] += fullOutput;
+        } else {
+          if (this.outputs.length < Interpreter.MAX_OUTPUT_LINES) {
+            this.outputs.push(fullOutput);
+          } else if (this.outputs.length === Interpreter.MAX_OUTPUT_LINES) {
+            this.outputs.push(`[Salida truncada: se alcanzó el límite de ${Interpreter.MAX_OUTPUT_LINES} líneas de salida]`);
+          }
         }
+        this.lastOutputHadNoNewline = Boolean(write.noNewline);
 
         const step: TraceStep = {
           stepNumber: this.stepNumber,
@@ -557,6 +618,16 @@ export class Interpreter {
 
         const left = this.evalExpression(expr.left);
         const right = this.evalExpression(expr.right);
+        const opUpper = (expr.operator || '').toUpperCase();
+        if (opUpper === 'MOD' || expr.operator === '%') {
+          if (right === 0) throw new Error('Error en tiempo de ejecución: Operación módulo con divisor cero no permitida');
+          return left % right;
+        }
+        if (opUpper === 'DIV') {
+          if (right === 0) throw new Error('Error en tiempo de ejecución: División por cero no permitida');
+          return Math.trunc(left / right);
+        }
+
         switch (expr.operator) {
           case '+':
             if (typeof left === 'string' || typeof right === 'string') return `${left}${right}`;
@@ -568,10 +639,6 @@ export class Interpreter {
           case '/':
             if (right === 0) throw new Error('Error en tiempo de ejecución: División por cero no permitida');
             return left / right;
-          case '%':
-          case 'MOD':
-            if (right === 0) throw new Error('Error en tiempo de ejecución: Operación módulo con divisor cero no permitida');
-            return left % right;
           case '^':
             return Math.pow(left, right);
           case '=':
@@ -599,7 +666,7 @@ export class Interpreter {
       }
 
       case 'ArrayAccess': {
-        const arr = this.resolveVariable(expr.name);
+        const arr = (expr as any).object ? this.evalExpression((expr as any).object) : this.resolveVariable(expr.name);
         const indices = expr.indices.map(i => Math.floor(this.evalExpression(i)));
         return this.getArrayElement(arr, indices);
       }
@@ -650,10 +717,11 @@ export class Interpreter {
       }
 
       case 'SuperCall': {
-        const inst = this.currentFrame()?.thisInstance;
+        const frame = this.currentFrame();
+        const inst = frame?.thisInstance;
         if (!inst) throw new Error('Llamada a Super fuera de una instancia');
-        const currentClass = this.classes.get(inst.className.toLowerCase());
-        if (!currentClass?.superClass) throw new Error(`La clase ${inst.className} no tiene superclase`);
+        const currentClass = frame?.currentClass || this.classes.get(inst.className.toLowerCase());
+        if (!currentClass?.superClass) throw new Error(`La clase ${currentClass?.name || inst.className} no tiene superclase`);
         const superClass = this.classes.get(currentClass.superClass.toLowerCase());
         if (!superClass) throw new Error(`Superclase no encontrada: ${currentClass.superClass}`);
 
@@ -701,15 +769,19 @@ export class Interpreter {
     }
 
     const frameVars = new Map<string, any>();
+    const frameTypes = new Map<string, string>();
     for (let i = 0; i < method.parameters.length; i++) {
       const param = method.parameters[i];
       frameVars.set(param.name, args[i] !== undefined ? args[i] : this.defaultValueFor(param.dataType));
+      frameTypes.set(param.name.toLowerCase(), param.dataType);
     }
 
     this.callStack.push({
       name: `${instance.className}.${method.name}`,
       variables: frameVars,
-      thisInstance: instance
+      variableTypes: frameTypes,
+      thisInstance: instance,
+      currentClass: _cls
     });
 
     const gen = this.executeBlock(method.body);
@@ -729,11 +801,13 @@ export class Interpreter {
     }
 
     const frameVars = new Map<string, any>();
+    const frameTypes = new Map<string, string>();
     const references = new Map<string, { scope: Map<string, any>; key: string }>();
 
     for (let i = 0; i < sub.parameters.length; i++) {
       const param = sub.parameters[i];
       const val = evalArgs[i] !== undefined ? evalArgs[i] : this.defaultValueFor(param.dataType);
+      frameTypes.set(param.name.toLowerCase(), param.dataType);
 
       if (param.isReference && rawArgs[i].type === 'Variable') {
         const callerVar = (rawArgs[i] as any).name;
@@ -748,6 +822,7 @@ export class Interpreter {
     this.callStack.push({
       name: sub.name,
       variables: frameVars,
+      variableTypes: frameTypes,
       references
     });
 
@@ -819,6 +894,40 @@ export class Interpreter {
         const start = args[1] !== undefined ? Math.floor(args[1]) : 0;
         const end = args[2] !== undefined ? Math.floor(args[2]) : str.length;
         return str.substring(start, end + 1);
+      }
+      case 'caracteren':
+      case 'charat': {
+        const str = String(args[0] !== undefined ? args[0] : '');
+        const idx = args[1] !== undefined ? Math.floor(args[1]) : 0;
+        return str.charAt(idx);
+      }
+      case 'atexto':
+      case 'totext':
+        return String(args[0] !== undefined ? args[0] : '');
+      case 'aentero':
+      case 'tointeger':
+        return Math.trunc(Number(args[0] !== undefined ? args[0] : 0));
+      case 'areal':
+      case 'toreal':
+        return Number(args[0] !== undefined ? args[0] : 0);
+      case 'codigocaracter':
+      case 'charcode':
+        return String(args[0] !== undefined ? args[0] : '').charCodeAt(0) || 0;
+      case 'caracterdesdecodigo':
+      case 'charfromcode':
+        return String.fromCharCode(Number(args[0] !== undefined ? args[0] : 0));
+      case 'copiar':
+      case 'copy': {
+        const inst = args[0];
+        if (!inst || typeof inst !== 'object' || !inst.className) {
+          throw new Error('La función Copiar requiere una instancia de objeto');
+        }
+        this.objectCounter++;
+        return {
+          id: `${inst.className}#${this.objectCounter}`,
+          className: inst.className,
+          fields: { ...inst.fields }
+        };
       }
       default:
         throw new Error(`Función no definida o desconocida: "${name}"`);
@@ -959,10 +1068,127 @@ export class Interpreter {
     return str;
   }
 
-  private formatValueForPrint(val: any): string {
+  private formatValueForPrint(val: any, isReal?: boolean): string {
     if (val === null || val === undefined) return '';
     if (typeof val === 'boolean') return val ? 'Verdadero' : 'Falso';
     if (typeof val === 'object' && val.id) return val.id;
+    if (typeof val === 'number') {
+      const rounded = Math.round(val * 1e10) / 1e10;
+      if (isReal && Number.isInteger(rounded)) {
+        return rounded.toFixed(1);
+      }
+      return String(rounded);
+    }
     return String(val);
+  }
+
+  private isRealExpression(expr: ExpressionNode): boolean {
+    if (!expr) return false;
+    switch (expr.type) {
+      case 'Literal':
+        return expr.dataType === 'Real' || (typeof expr.value === 'number' && !Number.isInteger(expr.value));
+      case 'Variable': {
+        const t = this.resolveVariableType(expr.name);
+        return t === 'real';
+      }
+      case 'ArrayAccess': {
+        if ((expr as any).object) {
+          const clsName = this.findClassForReceiver((expr as any).object);
+          if (clsName) {
+            const cls = this.classes.get(clsName.toLowerCase());
+            const field = cls?.fields.find(f => f.variableName.toLowerCase() === expr.name.toLowerCase());
+            if (field && field.dataType.toLowerCase() === 'real') return true;
+          }
+        }
+        const t = this.resolveVariableType(expr.name);
+        return t === 'real';
+      }
+      case 'This': {
+        if (expr.member) {
+          const inst = this.currentFrame()?.thisInstance;
+          if (inst) {
+            const cls = this.classes.get(inst.className.toLowerCase());
+            if (cls) {
+              const field = cls.fields.find(f => f.variableName.toLowerCase() === expr.member?.toLowerCase());
+              if (field && field.dataType.toLowerCase() === 'real') return true;
+            }
+          }
+        }
+        return false;
+      }
+      case 'MemberAccess': {
+        const clsName = this.findClassForReceiver(expr.object);
+        if (clsName) {
+          const cls = this.classes.get(clsName.toLowerCase());
+          if (cls) {
+            const method = this.findMethod(cls, expr.member);
+            if (method && method.returnType?.toLowerCase() === 'real') return true;
+            const field = cls.fields.find(f => f.variableName.toLowerCase() === expr.member.toLowerCase());
+            if (field && field.dataType.toLowerCase() === 'real') return true;
+          }
+        }
+        return false;
+      }
+      case 'Call': {
+        const sub = this.subprograms.get(expr.callee.toLowerCase());
+        if (sub && sub.returnType?.toLowerCase() === 'real') return true;
+        const callee = expr.callee.toLowerCase();
+        if (callee === 'rc' || callee === 'raiz' || callee === 'sen' || callee === 'seno' ||
+            callee === 'cos' || callee === 'coseno' || callee === 'tan' || callee === 'tangente' ||
+            callee === 'ln' || callee === 'exp' || callee === 'areal' || callee === 'toreal') {
+          return true;
+        }
+        return false;
+      }
+      case 'BinaryOp': {
+        if (expr.operator === '/') {
+          return true;
+        }
+        if (expr.operator === '+' || expr.operator === '-' || expr.operator === '*' || expr.operator === '^') {
+          return this.isRealExpression(expr.left) || this.isRealExpression(expr.right);
+        }
+        return false;
+      }
+      case 'UnaryOp':
+        return this.isRealExpression(expr.argument);
+      default:
+        return false;
+    }
+  }
+
+  private resolveVariableType(name: string): string | undefined {
+    const lower = name.toLowerCase();
+    for (let i = this.callStack.length - 1; i >= 0; i--) {
+      const frame = this.callStack[i];
+      if (frame.variableTypes && frame.variableTypes.has(lower)) {
+        return frame.variableTypes.get(lower)?.toLowerCase();
+      }
+      if (frame.thisInstance) {
+        const cls = this.classes.get(frame.thisInstance.className.toLowerCase());
+        if (cls) {
+          const field = cls.fields.find(f => f.variableName.toLowerCase() === lower);
+          if (field) return field.dataType.toLowerCase();
+        }
+      }
+    }
+    return undefined;
+  }
+
+  private findClassForReceiver(expr: ExpressionNode): string | undefined {
+    if (expr.type === 'Variable') {
+      const t = this.resolveVariableType(expr.name);
+      if (t && this.classes.has(t)) return t;
+    }
+    if (expr.type === 'This') {
+      return this.currentFrame()?.thisInstance?.className;
+    }
+    if (expr.type === 'New') {
+      return expr.className;
+    }
+    if (expr.type === 'ArrayAccess') {
+      const t = this.resolveVariableType(expr.name);
+      if (t && this.classes.has(t)) return t;
+    }
+    return undefined;
   }
 }

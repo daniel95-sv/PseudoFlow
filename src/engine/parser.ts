@@ -216,14 +216,35 @@ export class Parser {
     }
 
     const expressions: ExpressionNode[] = [];
-    if (!this.check('SEMICOLON') && !this.isAtEnd()) {
+    if (!this.check('SEMICOLON') && !this.check('SIN') && !this.isAtEnd()) {
       do {
         expressions.push(this.parseExpression());
       } while (this.match('COMMA'));
     }
 
+    if (this.match('SIN')) {
+      this.match('SALTAR');
+      noNewline = true;
+    }
+
     this.match('SEMICOLON');
     return { type: 'Write', line, expressions, noNewline };
+  }
+
+  private isCaseLabelStart(): boolean {
+    if (this.check('CASO') || this.check('DE_OTRO_MODO')) return true;
+    if (this.check('DE') && this.tokens[this.current + 1]?.type === 'OTRO') return true;
+    let i = this.current;
+    let depth = 0;
+    while (i < this.tokens.length && this.tokens[i].type !== 'EOF' && this.tokens[i].type !== 'SEMICOLON') {
+      const t = this.tokens[i].type;
+      if (t === 'ASSIGN' || t === 'ESCRIBIR' || t === 'LEER' || t === 'SI' || t === 'MIENTRAS' || t === 'PARA' || t === 'FINSEGUN') return false;
+      if (t === 'LPAREN' || t === 'LBRACKET') depth++;
+      else if (t === 'RPAREN' || t === 'RBRACKET') depth--;
+      else if (t === 'COLON' && depth === 0) return true;
+      i++;
+    }
+    return false;
   }
 
   private parseIf(): IfNode {
@@ -260,7 +281,15 @@ export class Parser {
     let defaultCase: ASTNode[] | undefined;
 
     while (!this.isAtEnd() && !this.check('FINSEGUN')) {
-      if (this.match('CASO')) {
+      if (this.match('DE_OTRO_MODO') || (this.match('DE') && this.match('OTRO') && this.match('MODO'))) {
+        this.match('COLON');
+        defaultCase = [];
+        while (!this.isAtEnd() && !this.check('FINSEGUN')) {
+          const stmt = this.parseStatement();
+          if (stmt) defaultCase.push(stmt);
+        }
+      } else if (this.check('CASO') || this.isCaseLabelStart()) {
+        this.match('CASO');
         const values: ExpressionNode[] = [];
         do {
           values.push(this.parseExpression());
@@ -268,18 +297,17 @@ export class Parser {
         this.consume('COLON', 'Se esperaba ":" tras los valores del Caso');
 
         const body: ASTNode[] = [];
-        while (!this.isAtEnd() && !this.check('CASO') && !this.check('DE_OTRO_MODO') && !this.check('DE') && !this.check('FINSEGUN')) {
+        while (
+          !this.isAtEnd() &&
+          !this.check('FINSEGUN') &&
+          !this.check('DE_OTRO_MODO') &&
+          !(this.check('DE') && this.tokens[this.current + 1]?.type === 'OTRO') &&
+          !this.isCaseLabelStart()
+        ) {
           const stmt = this.parseStatement();
           if (stmt) body.push(stmt);
         }
         cases.push({ values, body });
-      } else if (this.match('DE_OTRO_MODO') || (this.match('DE') && this.match('OTRO') && this.match('MODO'))) {
-        this.match('COLON');
-        defaultCase = [];
-        while (!this.isAtEnd() && !this.check('FINSEGUN')) {
-          const stmt = this.parseStatement();
-          if (stmt) defaultCase.push(stmt);
-        }
       } else {
         this.advance();
       }
@@ -402,13 +430,23 @@ export class Parser {
       this.match('SEMICOLON');
 
       if (target.member) {
+        const parts = target.member.split('.');
+        const methodName = parts.pop()!;
+        let receiverObj: ExpressionNode = target.isThis ? { type: 'This' } : { type: 'Variable', name: target.name };
+        for (const p of parts) {
+          receiverObj = {
+            type: 'MemberAccess',
+            object: receiverObj,
+            member: p
+          };
+        }
         return {
           type: 'CallStatement',
           line,
           call: {
             type: 'MemberAccess',
-            object: target.isThis ? { type: 'This' } : { type: 'Variable', name: target.name },
-            member: target.member,
+            object: receiverObj,
+            member: methodName,
             args
           }
         };
@@ -432,16 +470,14 @@ export class Parser {
   private parseTarget(): TargetNode {
     let isThis = false;
     let name = '';
+    const memberParts: string[] = [];
 
     if (this.match('ESTE')) {
       isThis = true;
       name = 'Este';
-      this.consume('DOT', 'Se esperaba "." tras Este');
-      const member = this.consume('IDENTIFIER', 'Se esperaba el nombre del atributo').value;
-      return { name, isThis, member };
+    } else {
+      name = this.consume('IDENTIFIER', 'Se esperaba un identificador').value;
     }
-
-    name = this.consume('IDENTIFIER', 'Se esperaba un identificador').value;
 
     // Array index? e.g. datos[fila, columna]
     if (this.match('LBRACKET')) {
@@ -454,19 +490,22 @@ export class Parser {
       return { name, indices };
     }
 
-    // Member access? e.g. persona.edad
-    if (this.match('DOT')) {
+    // Member access? e.g. persona.edad or primero.siguiente.valor
+    while (this.match('DOT')) {
       let member = '';
-      if (this.check('CONSTRUCTOR')) {
-        this.advance();
+      if (this.match('CONSTRUCTOR')) {
         member = 'Constructor';
       } else {
         member = this.consume('IDENTIFIER', 'Se esperaba el nombre del miembro').value;
       }
-      return { name, member };
+      memberParts.push(member);
     }
 
-    return { name };
+    if (memberParts.length > 0) {
+      return { name, isThis, member: memberParts.join('.') };
+    }
+
+    return { name, isThis };
   }
 
   private parseSubprogram(): SubprogramNode {
@@ -479,6 +518,13 @@ export class Parser {
       if (!this.check('RPAREN')) {
         do {
           const pName = this.consume('IDENTIFIER', 'Se esperaba el nombre del parámetro').value;
+          let isArrayParam = false;
+          if (this.match('LBRACKET')) {
+            isArrayParam = true;
+            while (this.match('COMMA')) { /* consume dimension commas */ }
+            this.consume('RBRACKET', 'Se esperaba "]" tras el nombre del arreglo en parámetros');
+          }
+
           this.consume('COMO', 'Se esperaba "Como"');
           let pType = 'Entero';
           if (this.match('TIPO_ENTERO')) pType = 'Entero';
@@ -488,7 +534,7 @@ export class Parser {
           else if (this.match('TIPO_LOGICO')) pType = 'Logico';
           else if (this.check('IDENTIFIER')) pType = this.advance().value;
 
-          let isRef = false;
+          let isRef = isArrayParam;
           if (this.match('POR') || this.match('BY')) {
             if (this.check('REFERENCIA') || (this.check('IDENTIFIER') && /^(referencia|reference)$/i.test(this.peek().value))) {
               this.advance();
@@ -586,6 +632,13 @@ export class Parser {
       if (!this.check('RPAREN')) {
         do {
           const pName = this.consume('IDENTIFIER', 'Se esperaba el nombre del parámetro').value;
+          let isArrayParam = false;
+          if (this.match('LBRACKET')) {
+            isArrayParam = true;
+            while (this.match('COMMA')) { /* consume dimension commas */ }
+            this.consume('RBRACKET', 'Se esperaba "]" tras el nombre del arreglo en parámetros');
+          }
+
           this.consume('COMO', 'Se esperaba "Como"');
           let pType = 'Entero';
           if (this.match('TIPO_ENTERO')) pType = 'Entero';
@@ -595,7 +648,7 @@ export class Parser {
           else if (this.match('TIPO_LOGICO')) pType = 'Logico';
           else if (this.check('IDENTIFIER')) pType = this.advance().value;
 
-          let isRef = false;
+          let isRef = isArrayParam;
           if (this.match('POR') || this.match('BY')) {
             if (this.check('REFERENCIA') || (this.check('IDENTIFIER') && /^(referencia|reference)$/i.test(this.peek().value))) {
               this.advance();
@@ -695,7 +748,7 @@ export class Parser {
 
   private parseMultiplication(): ExpressionNode {
     let expr = this.parseUnary();
-    while (this.check('STAR') || this.check('SLASH') || this.check('MOD')) {
+    while (this.check('STAR') || this.check('SLASH') || this.check('MOD') || this.check('DIV')) {
       const op = this.advance().value;
       const right = this.parseUnary();
       expr = { type: 'BinaryOp', operator: op, left: expr, right };
@@ -724,100 +777,86 @@ export class Parser {
     return expr;
   }
 
-
-
   private parsePrimary(): ExpressionNode {
+    let expr: ExpressionNode;
+
     if (this.match('NUMBER')) {
       const raw = this.previous().value;
       const val = raw.includes('.') ? parseFloat(raw) : parseInt(raw, 10);
-      return { type: 'Literal', value: val, raw, dataType: raw.includes('.') ? 'Real' : 'Entero' };
-    }
-
-    if (this.match('STRING')) {
+      expr = { type: 'Literal', value: val, raw, dataType: raw.includes('.') ? 'Real' : 'Entero' };
+    } else if (this.match('STRING')) {
       const val = this.previous().value;
-      return { type: 'Literal', value: val, raw: `"${val}"`, dataType: 'Cadena' };
-    }
-
-    if (this.match('VERDADERO')) {
-      return { type: 'Literal', value: true, raw: 'Verdadero', dataType: 'Logico' };
-    }
-
-    if (this.match('FALSO')) {
-      return { type: 'Literal', value: false, raw: 'Falso', dataType: 'Logico' };
-    }
-
-    if (this.match('NUEVO')) {
+      expr = { type: 'Literal', value: val, raw: `"${val}"`, dataType: 'Cadena' };
+    } else if (this.match('VERDADERO')) {
+      expr = { type: 'Literal', value: true, raw: 'Verdadero', dataType: 'Logico' };
+    } else if (this.match('FALSO')) {
+      expr = { type: 'Literal', value: false, raw: 'Falso', dataType: 'Logico' };
+    } else if (this.match('NUEVO')) {
       const className = this.consume('IDENTIFIER', 'Se esperaba el nombre de la clase').value;
       this.consume('LPAREN', 'Se esperaba "("');
       const args = this.parseArguments();
       this.consume('RPAREN', 'Se esperaba ")"');
-      return { type: 'New', className, args };
+      expr = { type: 'New', className, args };
+    } else if (this.match('SUPER')) {
+      this.consume('DOT', 'Se esperaba "." tras Super');
+      let methodName = 'Constructor';
+      if (this.match('CONSTRUCTOR')) methodName = 'Constructor';
+      else methodName = this.consume('IDENTIFIER', 'Se esperaba el nombre del método en Super').value;
+      this.consume('LPAREN', 'Se esperaba "("');
+      const args = this.parseArguments();
+      this.consume('RPAREN', 'Se esperaba ")"');
+      expr = { type: 'SuperCall', methodName, args };
+    } else if (this.match('ESTE')) {
+      expr = { type: 'This' };
+    } else if (this.match('LPAREN')) {
+      expr = this.parseExpression();
+      this.consume('RPAREN', 'Se esperaba ")"');
+    } else if (this.check('IDENTIFIER')) {
+      const name = this.advance().value;
+      if (this.match('LPAREN')) {
+        const args = this.parseArguments();
+        this.consume('RPAREN', 'Se esperaba ")"');
+        expr = { type: 'Call', callee: name, args };
+      } else {
+        expr = { type: 'Variable', name };
+      }
+    } else {
+      throw new Error(`Token inesperado en línea ${this.peek().line}: ${this.peek().value || this.peek().type}`);
     }
 
-    if (this.match('ESTE')) {
+    // Postfix chaining: .member, .method(args), [indices]
+    while (this.check('DOT') || this.check('LBRACKET')) {
       if (this.match('DOT')) {
-        const member = this.consume('IDENTIFIER', 'Se esperaba atributo en Este').value;
+        let member = '';
+        if (this.match('CONSTRUCTOR')) {
+          member = 'Constructor';
+        } else {
+          member = this.consume('IDENTIFIER', 'Se esperaba el nombre del miembro tras "."').value;
+        }
+
         if (this.match('LPAREN')) {
           const args = this.parseArguments();
           this.consume('RPAREN', 'Se esperaba ")"');
-          return { type: 'MemberAccess', object: { type: 'This' }, member, args };
+          expr = { type: 'MemberAccess', object: expr, member, args };
+        } else {
+          expr = { type: 'MemberAccess', object: expr, member };
         }
-        return { type: 'This', member };
-      }
-      return { type: 'This' };
-    }
-
-    if (this.match('LPAREN')) {
-      const expr = this.parseExpression();
-      this.consume('RPAREN', 'Se esperaba ")"');
-      return expr;
-    }
-
-    if (this.check('IDENTIFIER')) {
-      const name = this.advance().value;
-
-      // Array access
-      if (this.match('LBRACKET')) {
+      } else if (this.match('LBRACKET')) {
         const indices: ExpressionNode[] = [];
         indices.push(this.parseExpression());
         while (this.match('COMMA')) {
           indices.push(this.parseExpression());
         }
         this.consume('RBRACKET', 'Se esperaba "]"');
-        return { type: 'ArrayAccess', name, indices };
-      }
-
-      // Member call or property
-      if (this.match('DOT')) {
-        const member = this.consume('IDENTIFIER', 'Se esperaba el nombre del miembro').value;
-        if (this.match('LPAREN')) {
-          const args = this.parseArguments();
-          this.consume('RPAREN', 'Se esperaba ")"');
-          return {
-            type: 'MemberAccess',
-            object: { type: 'Variable', name },
-            member,
-            args
-          };
+        if (expr.type === 'Variable') {
+          expr = { type: 'ArrayAccess', name: (expr as any).name, indices };
+        } else {
+          expr = { type: 'ArrayAccess', name: '', indices, object: expr };
         }
-        return {
-          type: 'MemberAccess',
-          object: { type: 'Variable', name },
-          member
-        };
       }
-
-      // Function or subprogram call
-      if (this.match('LPAREN')) {
-        const args = this.parseArguments();
-        this.consume('RPAREN', 'Se esperaba ")"');
-        return { type: 'Call', callee: name, args };
-      }
-
-      return { type: 'Variable', name };
     }
 
-    throw new Error(`Token inesperado en línea ${this.peek().line}: ${this.peek().value || this.peek().type}`);
+    return expr;
   }
 
   private parseArguments(): ExpressionNode[] {
@@ -843,7 +882,7 @@ export class Parser {
 
   private isIdentifierToken(token?: Token): boolean {
     if (!token) return false;
-    return token.type === 'IDENTIFIER' || token.type === 'VALOR' || token.type === 'REFERENCIA' || token.type === 'PASO';
+    return token.type === 'IDENTIFIER' || token.type === 'VALOR' || token.type === 'REFERENCIA' || token.type === 'PASO' || token.type === 'OTRO' || token.type === 'MODO' || token.type === 'CASO';
   }
 
   private check(type: string): boolean {

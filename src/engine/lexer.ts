@@ -461,7 +461,8 @@ export class Lexer {
       'or': 'OR',
       'no': 'NOT',
       'not': 'NOT',
-      'mod': 'MOD'
+      'mod': 'MOD',
+      'div': 'DIV'
     };
 
     if (KEYWORDS[lower]) {

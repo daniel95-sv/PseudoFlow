@@ -671,8 +671,8 @@
         "expected": "numerico"
       }
     ],
-    "referenceSolution_es": "Proceso Promedio\n    Definir primera Como Entero;\n    Definir segunda Como Entero;\n    Definir tercera Como Entero;\n    Definir promedio Como Real;\n    Leer primera;\n    Leer segunda;\n    Leer tercera;\n    promedio <- (primera + segunda + tercera) / 3;\n    Escribir promedio;\nFinProceso\n",
-    "referenceSolution_en": "algorithm Average\n    define first as integer;\n    define second as integer;\n    define third as integer;\n    define average as real;\n    read first;\n    read second;\n    read third;\n    average <- (first + second + third) / 3;\n    write average;\nendAlgorithm\n"
+    "referenceSolution_es": "Proceso Promedio\n    Definir primera Como Entero;\n    Definir segunda Como Entero;\n    Definir tercera Como Entero;\n    Definir promedio Como Entero;\n    Leer primera;\n    Leer segunda;\n    Leer tercera;\n    promedio <- (primera + segunda + tercera) / 3;\n    Escribir promedio;\nFinProceso\n",
+    "referenceSolution_en": "algorithm Average\n    define first as integer;\n    define second as integer;\n    define third as integer;\n    define average as integer;\n    read first;\n    read second;\n    read third;\n    average <- (first + second + third) / 3;\n    write average;\nendAlgorithm\n"
   },
   {
     "id": "CON-B1-E5",

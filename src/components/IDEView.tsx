@@ -44,6 +44,7 @@ import { StructogramView } from './StructogramView';
 import { TraceTableView } from './TraceTableView';
 import { UmlClassView } from './UmlClassView';
 import { CodeExportView } from './CodeExportView';
+import { ModuleGuideModal } from './ModuleGuideModal';
 
 // Data imports
 import modulesData from '../data/modules.json';
@@ -75,6 +76,7 @@ interface IDEViewProps {
   onToggleTheme: () => void;
   lang: 'es' | 'en';
   onToggleLang: () => void;
+  initialModuleId?: string;
 }
 
 export const IDEView: React.FC<IDEViewProps> = ({
@@ -82,7 +84,8 @@ export const IDEView: React.FC<IDEViewProps> = ({
   theme,
   onToggleTheme,
   lang,
-  onToggleLang
+  onToggleLang,
+  initialModuleId
 }) => {
   const isEs = lang === 'es';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -168,9 +171,18 @@ export const IDEView: React.FC<IDEViewProps> = ({
   const [activeSidebarTab, setActiveSidebarTab] = useState<'track' | 'specs' | 'examples'>('track');
   const [activeSurfaceTab, setActiveSurfaceTab] = useState<'flow' | 'ns' | 'trace' | 'uml' | 'export'>('flow');
   const [selectedExercise, setSelectedExercise] = useState<any | null>(null);
-  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({
+  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>(() => ({
     'CON-A2': true,
-    'CON-B1': true
+    'CON-B1': true,
+    ...(initialModuleId ? { [initialModuleId]: true } : {})
+  }));
+  const [selectedGuideModule, setSelectedGuideModule] = useState<any | null>(() => {
+    if (!initialModuleId) return null;
+    const found = modulesData.find(m => m.id === initialModuleId);
+    if (found && (found.id === 'CON-A1' || !exercisesData.some(e => e.module === found.id))) {
+      return found;
+    }
+    return null;
   });
   const [testResults, setTestResults] = useState<{ passed: boolean; details: any[] } | null>(null);
 
@@ -540,6 +552,52 @@ FinAlgoritmo
 
                 {isExpanded && (
                   <div style={{ background: 'var(--pl-surface)' }}>
+                    <div
+                      style={{
+                        padding: '0.45rem 0.8rem',
+                        borderBottom: '1px solid var(--pl-line-soft)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        background: 'var(--pl-sunken)'
+                      }}
+                    >
+                      <span style={{ fontSize: '0.74rem', color: 'var(--pl-ink-2)' }}>
+                        {isEs ? 'Guía teórica y modelo:' : 'Theory guide & model:'}
+                      </span>
+                      <button
+                        type="button"
+                        className="pl-btn pl-btn--outline pl-btn--sm"
+                        style={{ fontSize: '0.72rem', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedGuideModule(mod);
+                        }}
+                      >
+                        <BookOpen size={12} />
+                        <span>{isEs ? 'Ver guía del tema' : 'View module guide'}</span>
+                      </button>
+                    </div>
+
+                    {modExercises.length === 0 && (
+                      <div style={{ padding: '0.8rem', fontSize: '0.78rem', color: 'var(--pl-ink-2)', lineHeight: 1.4 }}>
+                        <p style={{ margin: '0 0 0.5rem 0' }}>
+                          {isEs
+                            ? 'Este módulo sienta las bases conceptuales sobre qué es un algoritmo. No requiere código en el editor; puedes estudiar la guía teórica completa con sus ejemplos.'
+                            : 'This module establishes conceptual foundations. No editor exercises required; read the full theoretical guide with examples.'}
+                        </p>
+                        <button
+                          type="button"
+                          className="pl-btn pl-btn--primary pl-btn--sm"
+                          style={{ width: '100%', justifyContent: 'center' }}
+                          onClick={() => setSelectedGuideModule(mod)}
+                        >
+                          <BookOpen size={13} />
+                          <span>{isEs ? 'Abrir guía teórica de CON-A1' : 'Open CON-A1 guide'}</span>
+                        </button>
+                      </div>
+                    )}
+
                     {modExercises.map((ex: any) => {
                       const isSelected = selectedExercise?.id === ex.id;
                       return (
@@ -654,16 +712,32 @@ FinAlgoritmo
               {isMobile && (isStatementCollapsedMobile ? <ChevronRight size={14} /> : <ChevronDown size={14} />)}
               <span>{isEs ? 'Enunciado del reto' : 'Challenge Statement'}</span>
             </div>
-            <button
-              type="button"
-              className="pl-btn pl-btn--outline pl-btn--sm"
-              onClick={(e) => { e.stopPropagation(); handleLoadExerciseSolution(); }}
-              style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-              title={isEs ? 'Cargar solución de referencia en el editor' : 'Load reference solution into editor'}
-            >
-              <BookOpen size={12} />
-              <span>{isEs ? 'Solución' : 'Solution'}</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <button
+                type="button"
+                className="pl-btn pl-btn--outline pl-btn--sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const currentMod = modulesData.find(m => m.id === selectedExercise.module);
+                  if (currentMod) setSelectedGuideModule(currentMod);
+                }}
+                style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                title={isEs ? 'Ver guía teórica de este módulo' : 'View module theory guide'}
+              >
+                <BookOpen size={12} />
+                <span>{isEs ? 'Teoría' : 'Theory'}</span>
+              </button>
+              <button
+                type="button"
+                className="pl-btn pl-btn--outline pl-btn--sm"
+                onClick={(e) => { e.stopPropagation(); handleLoadExerciseSolution(); }}
+                style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                title={isEs ? 'Cargar solución de referencia en el editor' : 'Load reference solution into editor'}
+              >
+                <BookOpen size={12} />
+                <span>{isEs ? 'Solución' : 'Solution'}</span>
+              </button>
+            </div>
           </div>
 
           {!isStatementCollapsedMobile && (
@@ -1482,6 +1556,35 @@ FinAlgoritmo
           )}
         </div>
       </div>
+
+      {/* Module Guide Modal */}
+      {selectedGuideModule && (
+        <ModuleGuideModal
+          module={selectedGuideModule}
+          isOpen={Boolean(selectedGuideModule)}
+          onClose={() => setSelectedGuideModule(null)}
+          lang={lang}
+          onLoadCode={(snippet, _title) => {
+            setCode(snippet);
+            resetExecution(snippet);
+            safeStorageSet('pseudoflow-draft-code', snippet);
+            setSelectedExercise(null);
+            setTestResults(null);
+            setIsSidebarDrawerOpen(false);
+            setMobileTab('code');
+          }}
+          onNavigateModule={(dir) => {
+            const idx = modulesData.findIndex(m => m.id === selectedGuideModule.id);
+            if (dir === 'prev' && idx > 0) {
+              setSelectedGuideModule(modulesData[idx - 1]);
+            } else if (dir === 'next' && idx < modulesData.length - 1) {
+              setSelectedGuideModule(modulesData[idx + 1]);
+            }
+          }}
+          hasPrev={modulesData.findIndex(m => m.id === selectedGuideModule.id) > 0}
+          hasNext={modulesData.findIndex(m => m.id === selectedGuideModule.id) < modulesData.length - 1}
+        />
+      )}
     </div>
   );
 };

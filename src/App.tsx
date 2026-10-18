@@ -39,6 +39,8 @@ export function App() {
     return () => window.removeEventListener('hashchange', handleHash);
   }, []);
 
+  const [activeModuleId, setActiveModuleId] = useState<string | undefined>(undefined);
+
   const toggleTheme = () => {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
@@ -47,9 +49,10 @@ export function App() {
     setLang(prev => (prev === 'es' ? 'en' : 'es'));
   };
 
-  const handleOpenIDE = () => {
+  const handleOpenIDE = (targetModuleId?: string) => {
+    setActiveModuleId(targetModuleId);
     setView('ide');
-    window.location.hash = '#ide';
+    window.location.hash = targetModuleId ? `#ide/${targetModuleId}` : '#ide';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -67,6 +70,7 @@ export function App() {
         onToggleTheme={toggleTheme}
         lang={lang}
         onToggleLang={toggleLang}
+        initialModuleId={activeModuleId}
       />
     );
   }

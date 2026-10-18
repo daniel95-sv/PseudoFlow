@@ -205,6 +205,7 @@ export interface ArrayAccessNode {
   type: 'ArrayAccess';
   name: string;
   indices: ExpressionNode[];
+  object?: ExpressionNode;
 }
 
 export interface MemberAccessNode {
