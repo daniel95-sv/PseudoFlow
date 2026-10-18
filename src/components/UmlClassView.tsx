@@ -3,13 +3,20 @@ import { ClassNode } from '../engine/types';
 
 interface UmlClassViewProps {
   classes: ClassNode[];
+  lang?: 'es' | 'en';
 }
 
-export const UmlClassView: React.FC<UmlClassViewProps> = ({ classes }) => {
+export const UmlClassView: React.FC<UmlClassViewProps> = ({ classes, lang = 'es' }) => {
+  const isEs = lang === 'es';
+
   if (!classes || classes.length === 0) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--pl-ink-2)' }}>
-        No se detectaron clases en este programa. Define una clase con <code>Clase ... FinClase</code> para generar el diagrama UML.
+        {isEs ? (
+          <>No se detectaron clases en este programa. Define una clase con <code>Clase ... FinClase</code> para generar el diagrama UML.</>
+        ) : (
+          <>No classes detected in this program. Define a class with <code>Class ... EndClass</code> to generate the UML diagram.</>
+        )}
       </div>
     );
   }
@@ -42,12 +49,12 @@ export const UmlClassView: React.FC<UmlClassViewProps> = ({ classes }) => {
             }}
           >
             <div style={{ fontSize: '0.72rem', color: 'var(--pl-ink-2)', textTransform: 'uppercase' }}>
-              &laquo;clase&raquo;
+              {isEs ? '«clase»' : '«class»'}
             </div>
             {cls.name}
             {cls.superClass && (
               <div style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--pl-ink-2)' }}>
-                &uarr; Hereda de {cls.superClass}
+                {isEs ? `↑ Hereda de ${cls.superClass}` : `↑ Extends ${cls.superClass}`}
               </div>
             )}
           </div>
@@ -55,7 +62,9 @@ export const UmlClassView: React.FC<UmlClassViewProps> = ({ classes }) => {
           {/* Attributes */}
           <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--pl-line)' }}>
             {cls.fields.length === 0 ? (
-              <div style={{ color: 'var(--pl-ink-3)', fontStyle: 'italic', fontSize: '0.8rem' }}>Sin atributos</div>
+              <div style={{ color: 'var(--pl-ink-3)', fontStyle: 'italic', fontSize: '0.8rem' }}>
+                {isEs ? 'Sin atributos' : 'No attributes'}
+              </div>
             ) : (
               cls.fields.map(f => (
                 <div key={f.variableName} style={{ padding: '0.1rem 0' }}>
@@ -69,7 +78,9 @@ export const UmlClassView: React.FC<UmlClassViewProps> = ({ classes }) => {
           {/* Methods */}
           <div style={{ padding: '0.5rem' }}>
             {cls.methods.length === 0 ? (
-              <div style={{ color: 'var(--pl-ink-3)', fontStyle: 'italic', fontSize: '0.8rem' }}>Sin métodos</div>
+              <div style={{ color: 'var(--pl-ink-3)', fontStyle: 'italic', fontSize: '0.8rem' }}>
+                {isEs ? 'Sin métodos' : 'No methods'}
+              </div>
             ) : (
               cls.methods.map(m => (
                 <div key={m.name} style={{ padding: '0.1rem 0' }}>

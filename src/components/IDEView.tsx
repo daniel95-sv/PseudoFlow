@@ -52,7 +52,7 @@ import exercisesData from '../data/exercises.json';
 import specsData from '../data/specifications.json';
 import examplesData from '../data/examples.json';
 
-const DEFAULT_CODE = `Proceso DemostracionGuiada
+const DEFAULT_CODE_ES = `Proceso DemostracionGuiada
     Definir temperatura Como Entero;
     Definir lecturas Como Entero;
     temperatura <- 30;
@@ -65,6 +65,34 @@ const DEFAULT_CODE = `Proceso DemostracionGuiada
     Escribir "Confort alcanzado tras ", lecturas, " lecturas";
 FinProceso
 `;
+
+const DEFAULT_CODE_EN = `algorithm GuidedDemo
+    define temperature as integer;
+    define readings as integer;
+    temperature <- 30;
+    readings <- 0;
+    while temperature > 24 do
+        temperature <- temperature - 3;
+        readings <- readings + 1;
+        write "Reading ", readings, ": ", temperature, " degrees";
+    endWhile
+    write "Comfort reached after ", readings, " readings";
+endAlgorithm
+`;
+
+const DEFAULT_CODE = DEFAULT_CODE_ES;
+
+const formatExerciseKind = (kind: string, isEs: boolean) => {
+  if (isEs) return kind;
+  switch (kind) {
+    case 'crear': return 'create';
+    case 'completar': return 'complete';
+    case 'modificar': return 'modify';
+    case 'predecir': return 'predict';
+    case 'depurar': return 'debug';
+    default: return kind;
+  }
+};
 
 // UI History limits to prevent unbounded React state growth during lengthy sessions
 const MAX_UI_TRACE_STEPS = 1000;
@@ -142,8 +170,8 @@ export const IDEView: React.FC<IDEViewProps> = ({
       const parsedAst = parser.parse();
       return {
         ast: parsedAst,
-        flowchartData: generateFlowchart(parsedAst),
-        structogramBlocks: generateStructogram(parsedAst),
+        flowchartData: generateFlowchart(parsedAst, lang),
+        structogramBlocks: generateStructogram(parsedAst, lang),
         syntaxError: null
       };
     } catch (e: any) {
@@ -154,7 +182,8 @@ export const IDEView: React.FC<IDEViewProps> = ({
         syntaxError: (e.message || String(e)) as string
       };
     }
-  }, [code]);
+  }, [code, lang]);
+
 
   // Execution state
   const [interpreter, setInterpreter] = useState<Interpreter | null>(null);
@@ -213,6 +242,20 @@ export const IDEView: React.FC<IDEViewProps> = ({
       setInterpreter(null);
       setStepGenerator(null);
     }
+  };
+
+  const handleToggleLanguage = () => {
+    // If user hasn't edited the default starter code, switch it cleanly to the target language
+    if (code.trim() === DEFAULT_CODE_ES.trim()) {
+      setCode(DEFAULT_CODE_EN);
+      resetExecution(DEFAULT_CODE_EN);
+      safeStorageSet('pseudoflow-draft-code', DEFAULT_CODE_EN);
+    } else if (code.trim() === DEFAULT_CODE_EN.trim()) {
+      setCode(DEFAULT_CODE_ES);
+      resetExecution(DEFAULT_CODE_ES);
+      safeStorageSet('pseudoflow-draft-code', DEFAULT_CODE_ES);
+    }
+    onToggleLang();
   };
 
   const handleStepForward = () => {
@@ -389,14 +432,23 @@ export const IDEView: React.FC<IDEViewProps> = ({
       .slice(0, 3)
       .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join('');
-    const safeTitle = rawWords || 'Reto';
-    const starterCode = `Algoritmo Reto_${safeTitle}
-    // Módulo: ${ex.module} - ${isEs ? ex.title_es : (ex.title_en || ex.title_es)}
-    // Reto: ${isEs ? (ex.summary_es || '').split('\n')[0] : ((ex.summary_en || ex.summary_es || '').split('\n')[0])}
+    const safeTitle = rawWords || (isEs ? 'Reto' : 'Challenge');
+    const starterCode = isEs
+      ? `Algoritmo Reto_${safeTitle}
+    // Módulo: ${ex.module} - ${ex.title_es}
+    // Reto: ${(ex.summary_es || '').split('\n')[0]}
 
     // Escribe tu algoritmo a continuación:
 
 FinAlgoritmo
+`
+      : `algorithm Challenge_${safeTitle}
+    // Module: ${ex.module} - ${ex.title_en || ex.title_es}
+    // Challenge: ${(ex.summary_en || ex.summary_es || '').split('\n')[0]}
+
+    // Write your algorithm below:
+
+endAlgorithm
 `;
     setCode(starterCode);
     resetExecution(starterCode);
@@ -411,7 +463,10 @@ FinAlgoritmo
       ? '¿Deseas cargar la solución de referencia en el editor? Se reemplazará el código actual.'
       : 'Load reference solution into the editor? Current code will be replaced.';
     if (window.confirm(confirmMsg)) {
-      const solutionCode = selectedExercise.referenceSolution_es || DEFAULT_CODE;
+      const defaultCode = isEs ? DEFAULT_CODE_ES : DEFAULT_CODE_EN;
+      const solutionCode = isEs
+        ? (selectedExercise.referenceSolution_es || defaultCode)
+        : (selectedExercise.referenceSolution_en || selectedExercise.referenceSolution_es || defaultCode);
       setCode(solutionCode);
       resetExecution(solutionCode);
       safeStorageSet('pseudoflow-draft-code', solutionCode);
@@ -466,8 +521,9 @@ FinAlgoritmo
     if (window.confirm(confirmMsg)) {
       safeStorageRemove('pseudoflow-draft-code');
       setSelectedExercise(null);
-      setCode(DEFAULT_CODE);
-      resetExecution(DEFAULT_CODE);
+      const defaultCode = isEs ? DEFAULT_CODE_ES : DEFAULT_CODE_EN;
+      setCode(defaultCode);
+      resetExecution(defaultCode);
       setIsMobileMenuOpen(false);
     }
   };
@@ -631,7 +687,7 @@ FinAlgoritmo
                                 alignSelf: 'center'
                               }}
                             >
-                              N{ex.level} · {ex.kind}
+                              N{ex.level} · {formatExerciseKind(ex.kind, isEs)}
                             </span>
                           </div>
                           <div style={{ fontSize: '0.76rem', color: 'var(--pl-ink-2)', lineHeight: 1.3 }}>
@@ -1057,23 +1113,23 @@ FinAlgoritmo
           )}
 
           {!syntaxError && effectiveTab === 'flow' && (
-            <FlowchartView data={flowchartData} activeLine={activeLine} />
+            <FlowchartView data={flowchartData} activeLine={activeLine} lang={lang} />
           )}
 
           {!syntaxError && effectiveTab === 'ns' && (
-            <StructogramView blocks={structogramBlocks} activeLine={activeLine} />
+            <StructogramView blocks={structogramBlocks} activeLine={activeLine} lang={lang} />
           )}
 
           {includeTraceTab && effectiveTab === 'trace' && (
-            <TraceTableView steps={traceSteps} currentStepIndex={currentStepIdx} />
+            <TraceTableView steps={traceSteps} currentStepIndex={currentStepIdx} lang={lang} />
           )}
 
           {!syntaxError && effectiveTab === 'uml' && (
-            <UmlClassView classes={ast?.classes || []} />
+            <UmlClassView classes={ast?.classes || []} lang={lang} />
           )}
 
           {effectiveTab === 'export' && (
-            <CodeExportView code={code} />
+            <CodeExportView code={code} lang={lang} />
           )}
         </div>
       </>
@@ -1280,7 +1336,13 @@ FinAlgoritmo
           <button className="pl-icon-btn" onClick={onToggleTheme} title={isEs ? 'Cambiar tema' : 'Toggle theme'}>
             {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
           </button>
-          <button className="pl-btn pl-btn--outline pl-btn--sm" onClick={onToggleLang} style={{ minWidth: 34, padding: '0.28rem 0.45rem' }}>
+          <button
+            className="pl-btn pl-btn--outline pl-btn--sm"
+            onClick={handleToggleLanguage}
+            style={{ minWidth: 34, padding: '0.28rem 0.45rem' }}
+            title={isEs ? 'Cambiar a inglés (EN)' : 'Switch to Spanish (ES)'}
+            aria-label={isEs ? 'Cambiar idioma a inglés' : 'Switch language to Spanish'}
+          >
             {isEs ? 'EN' : 'ES'}
           </button>
         </div>
@@ -1318,6 +1380,19 @@ FinAlgoritmo
                   <option value={150}>2x ({isEs ? 'Rápido' : 'Fast'})</option>
                   <option value={30}>Max ({isEs ? 'Ráfaga' : 'Burst'})</option>
                 </select>
+              </div>
+
+              <div className="ide-mobile-menu__row">
+                <span>{isEs ? 'Idioma de interfaz:' : 'Interface language:'}</span>
+                <button
+                  type="button"
+                  className="pl-btn pl-btn--outline pl-btn--sm"
+                  onClick={handleToggleLanguage}
+                  style={{ minWidth: 44, padding: '0.25rem 0.6rem' }}
+                  title={isEs ? 'Cambiar a inglés' : 'Switch to Spanish'}
+                >
+                  {isEs ? 'EN' : 'ES'}
+                </button>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.6rem' }}>
@@ -1375,7 +1450,7 @@ FinAlgoritmo
           <GitBranch size={16} />
           <span>{isEs ? 'Vistas' : 'Views'}</span>
           {activeLine !== undefined && (
-            <span className="ide-tab-badge ide-tab-badge--active-run" title={`Línea ${activeLine}`}>
+            <span className="ide-tab-badge ide-tab-badge--active-run" title={isEs ? `Línea ${activeLine}` : `Line ${activeLine}`}>
               L{activeLine}
             </span>
           )}
@@ -1477,7 +1552,7 @@ FinAlgoritmo
                       )}
                     </div>
                     <div className="ide-trace-container">
-                      <TraceTableView steps={traceSteps} currentStepIndex={currentStepIdx} />
+                      <TraceTableView steps={traceSteps} currentStepIndex={currentStepIdx} lang={lang} />
                     </div>
                   </div>
                 </section>

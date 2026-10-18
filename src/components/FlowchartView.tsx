@@ -5,16 +5,20 @@ import { ZoomIn, ZoomOut, Maximize2, RotateCcw } from 'lucide-react';
 interface FlowchartViewProps {
   data: FlowchartData | null;
   activeLine?: number;
+  lang?: 'es' | 'en';
 }
 
-export const FlowchartView: React.FC<FlowchartViewProps> = ({ data, activeLine }) => {
+export const FlowchartView: React.FC<FlowchartViewProps> = ({ data, activeLine, lang = 'es' }) => {
+  const isEs = lang === 'es';
   const [zoom, setZoom] = useState<number>(1);
   const [fitToWidth, setFitToWidth] = useState<boolean>(true);
 
   if (!data || data.nodes.length === 0) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--pl-ink-2)' }}>
-        No hay ordinograma disponible. Escribe o selecciona un programa para generarlo.
+        {isEs
+          ? 'No hay ordinograma disponible. Escribe o selecciona un programa para generarlo.'
+          : 'No flowchart available. Write or select a program to generate it.'}
       </div>
     );
   }
@@ -47,18 +51,18 @@ export const FlowchartView: React.FC<FlowchartViewProps> = ({ data, activeLine }
           type="button"
           className={`flow-btn ${fitToWidth ? 'flow-btn--active' : ''}`}
           onClick={handleFit}
-          title="Ajustar al ancho de la pantalla (evita scroll horizontal)"
+          title={isEs ? 'Ajustar al ancho de la pantalla (evita scroll horizontal)' : 'Fit to screen width (avoids horizontal scroll)'}
         >
           <Maximize2 size={13} />
-          <span>Ajustar</span>
+          <span>{isEs ? 'Ajustar' : 'Fit'}</span>
         </button>
-        <button type="button" className="flow-btn" onClick={handleZoomIn} title="Acercar">
+        <button type="button" className="flow-btn" onClick={handleZoomIn} title={isEs ? 'Acercar' : 'Zoom in'}>
           <ZoomIn size={13} />
         </button>
-        <button type="button" className="flow-btn" onClick={handleZoomOut} title="Alejar">
+        <button type="button" className="flow-btn" onClick={handleZoomOut} title={isEs ? 'Alejar' : 'Zoom out'}>
           <ZoomOut size={13} />
         </button>
-        <button type="button" className="flow-btn" onClick={handleReset} title="Tamaño 100%">
+        <button type="button" className="flow-btn" onClick={handleReset} title={isEs ? 'Tamaño 100%' : 'Reset 100%'}>
           <RotateCcw size={13} />
           <span>{Math.round(zoom * 100)}%</span>
         </button>

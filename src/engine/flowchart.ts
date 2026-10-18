@@ -33,7 +33,8 @@ export interface FlowchartData {
   totalHeight: number;
 }
 
-export function generateFlowchart(program: ProgramNode): FlowchartData {
+export function generateFlowchart(program: ProgramNode, lang: 'es' | 'en' = 'es'): FlowchartData {
+  const isEs = lang === 'es';
   const nodes: FlowNode[] = [];
   const connections: FlowConnection[] = [];
 
@@ -46,7 +47,7 @@ export function generateFlowchart(program: ProgramNode): FlowchartData {
   nodes.push({
     id: startId,
     type: 'start',
-    label: `Inicio: ${program.name}`,
+    label: isEs ? `Inicio: ${program.name}` : `Start: ${program.name}`,
     line: program.line,
     x: centerX - 60,
     y: currentY,
@@ -59,7 +60,7 @@ export function generateFlowchart(program: ProgramNode): FlowchartData {
 
   // Process top-level statements
   for (const stmt of program.body) {
-    const res = processStatement(stmt, centerX, currentY, prevNodeId, nodeIdCounter);
+    const res = processStatement(stmt, centerX, currentY, prevNodeId, nodeIdCounter, isEs);
     nodeIdCounter = res.nextId;
     nodes.push(...res.nodes);
     connections.push(...res.connections);
@@ -72,7 +73,7 @@ export function generateFlowchart(program: ProgramNode): FlowchartData {
   nodes.push({
     id: endId,
     type: 'end',
-    label: `FinProceso`,
+    label: isEs ? `FinProceso` : `EndAlgorithm`,
     line: program.line,
     x: centerX - 55,
     y: currentY,
@@ -104,7 +105,8 @@ function processStatement(
   centerX: number,
   startY: number,
   prevId: string,
-  startIdCounter: number
+  startIdCounter: number,
+  isEs: boolean = true
 ): {
   nodes: FlowNode[];
   connections: FlowConnection[];
@@ -124,8 +126,8 @@ function processStatement(
       const node: FlowNode = {
         id,
         type: 'process',
-        label: `Definir ${decl.variableName}`,
-        subLabel: `Como ${decl.dataType}`,
+        label: isEs ? `Definir ${decl.variableName}` : `Define ${decl.variableName}`,
+        subLabel: isEs ? `Como ${decl.dataType}` : `as ${decl.dataType}`,
         line: decl.line,
         x: centerX - 90,
         y: currentY,
@@ -175,7 +177,7 @@ function processStatement(
       const node: FlowNode = {
         id,
         type: 'io',
-        label: `Leer: ${targetList}`,
+        label: isEs ? `Leer: ${targetList}` : `Read: ${targetList}`,
         line: r.line,
         x: centerX - 85,
         y: currentY,
@@ -197,7 +199,7 @@ function processStatement(
       const node: FlowNode = {
         id,
         type: 'io',
-        label: `Escribir ...`,
+        label: isEs ? `Escribir ...` : `Write ...`,
         line: w.line,
         x: centerX - 85,
         y: currentY,
@@ -219,7 +221,7 @@ function processStatement(
       const node: FlowNode = {
         id: decId,
         type: 'decision',
-        label: '¿Condición?',
+        label: isEs ? '¿Condición?' : 'Condition?',
         line: ifNode.line,
         x: centerX - 75,
         y: currentY,
@@ -238,7 +240,7 @@ function processStatement(
 
       // Then branch
       for (const s of ifNode.thenBranch || []) {
-        const res = processStatement(s, centerX - 50, currentY, lastId, idCounter);
+        const res = processStatement(s, centerX - 50, currentY, lastId, idCounter, isEs);
         idCounter = res.nextId;
         nodes.push(...res.nodes);
         connections.push(...res.connections);
@@ -255,7 +257,7 @@ function processStatement(
       const node: FlowNode = {
         id: decId,
         type: 'decision',
-        label: '¿Mientras?',
+        label: isEs ? '¿Mientras?' : 'While?',
         line: wh.line,
         x: centerX - 75,
         y: currentY,
@@ -273,7 +275,7 @@ function processStatement(
       let lastId = decId;
 
       for (const s of wh.body || []) {
-        const res = processStatement(s, centerX, currentY, lastId, idCounter);
+        const res = processStatement(s, centerX, currentY, lastId, idCounter, isEs);
         idCounter = res.nextId;
         nodes.push(...res.nodes);
         connections.push(...res.connections);

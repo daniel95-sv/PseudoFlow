@@ -4,9 +4,11 @@ import { transpileToPython, transpileToRust } from '../engine/transpiler';
 
 interface CodeExportViewProps {
   code: string;
+  lang?: 'es' | 'en';
 }
 
-export const CodeExportView: React.FC<CodeExportViewProps> = ({ code }) => {
+export const CodeExportView: React.FC<CodeExportViewProps> = ({ code, lang = 'es' }) => {
+  const isEs = lang === 'es';
   const [targetLang, setTargetLang] = useState<'python' | 'rust'>('python');
   const [copied, setCopied] = useState<boolean>(false);
 
@@ -42,7 +44,10 @@ export const CodeExportView: React.FC<CodeExportViewProps> = ({ code }) => {
       >
         <Info size={14} style={{ color: 'var(--pl-brand)', flexShrink: 0, marginTop: '2px' }} />
         <span>
-          <strong>Proyección didáctica experimental:</strong> traducción sintáctica con fines formativos (estructuras de control, E/S básica, bucles y arreglos). Arreglos complejos o tipado avanzado en Rust pueden requerir ajustes manuales en el compilador de destino.
+          <strong>{isEs ? 'Proyección didáctica experimental:' : 'Experimental educational projection:'}</strong>{' '}
+          {isEs
+            ? 'traducción sintáctica con fines formativos (estructuras de control, E/S básica, bucles y arreglos). Arreglos complejos o tipado avanzado en Rust pueden requerir ajustes manuales en el compilador de destino.'
+            : 'syntactic translation for learning purposes (control structures, basic I/O, loops, and arrays). Complex arrays or advanced Rust typing may require manual adjustments in the target compiler.'}
         </span>
       </div>
 
@@ -65,10 +70,10 @@ export const CodeExportView: React.FC<CodeExportViewProps> = ({ code }) => {
         <button
           className="pl-btn pl-btn--outline pl-btn--sm"
           onClick={handleCopy}
-          title="Copiar código al portapapeles"
+          title={isEs ? 'Copiar código al portapapeles' : 'Copy code to clipboard'}
         >
           {copied ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
-          <span>{copied ? '¡Copiado!' : 'Copiar'}</span>
+          <span>{copied ? (isEs ? '¡Copiado!' : 'Copied!') : (isEs ? 'Copiar' : 'Copy')}</span>
         </button>
       </div>
 

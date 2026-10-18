@@ -12,18 +12,19 @@ export interface StructogramBlock {
   cases?: { label: string; children: StructogramBlock[] }[];
 }
 
-export function generateStructogram(program: ProgramNode): StructogramBlock[] {
-  return program.body.map((stmt, idx) => convertStatementToBlock(stmt, `b_${idx}`));
+export function generateStructogram(program: ProgramNode, lang: 'es' | 'en' = 'es'): StructogramBlock[] {
+  const isEs = lang === 'es';
+  return program.body.map((stmt, idx) => convertStatementToBlock(stmt, `b_${idx}`, isEs));
 }
 
-function convertStatementToBlock(stmt: ASTNode, idPrefix: string): StructogramBlock {
+function convertStatementToBlock(stmt: ASTNode, idPrefix: string, isEs: boolean = true): StructogramBlock {
   switch (stmt.type) {
     case 'Declaration': {
       const decl = stmt as any;
       return {
         id: idPrefix,
         type: 'statement',
-        label: `Definir ${decl.variableName} Como ${decl.dataType}`,
+        label: isEs ? `Definir ${decl.variableName} Como ${decl.dataType}` : `Define ${decl.variableName} as ${decl.dataType}`,
         line: decl.line
       };
     }
@@ -41,7 +42,7 @@ function convertStatementToBlock(stmt: ASTNode, idPrefix: string): StructogramBl
     case 'Assignment': {
       const a = stmt as any;
       const targetStr = a.target?.isThis
-        ? `Este.${a.target.member}`
+        ? (isEs ? `Este.${a.target.member}` : `this.${a.target.member}`)
         : a.target?.member
         ? `${a.target.name}.${a.target.member}`
         : a.target?.name || 'x';
@@ -59,7 +60,7 @@ function convertStatementToBlock(stmt: ASTNode, idPrefix: string): StructogramBl
       return {
         id: idPrefix,
         type: 'statement',
-        label: `Leer ${targets}`,
+        label: isEs ? `Leer ${targets}` : `Read ${targets}`,
         line: r.line
       };
     }
@@ -69,7 +70,7 @@ function convertStatementToBlock(stmt: ASTNode, idPrefix: string): StructogramBl
       return {
         id: idPrefix,
         type: 'statement',
-        label: `Escribir ...`,
+        label: isEs ? `Escribir ...` : `Write ...`,
         line: w.line
       };
     }
@@ -79,13 +80,13 @@ function convertStatementToBlock(stmt: ASTNode, idPrefix: string): StructogramBl
       return {
         id: idPrefix,
         type: 'if',
-        label: `¿Condición?`,
+        label: isEs ? `¿Condición?` : `Condition?`,
         line: ifNode.line,
         thenChildren: (ifNode.thenBranch || []).map((s: any, i: number) =>
-          convertStatementToBlock(s, `${idPrefix}_then_${i}`)
+          convertStatementToBlock(s, `${idPrefix}_then_${i}`, isEs)
         ),
         elseChildren: (ifNode.elseBranch || []).map((s: any, i: number) =>
-          convertStatementToBlock(s, `${idPrefix}_else_${i}`)
+          convertStatementToBlock(s, `${idPrefix}_else_${i}`, isEs)
         )
       };
     }
@@ -95,10 +96,10 @@ function convertStatementToBlock(stmt: ASTNode, idPrefix: string): StructogramBl
       return {
         id: idPrefix,
         type: 'while',
-        label: `Mientras condición`,
+        label: isEs ? `Mientras condición` : `While condition`,
         line: wh.line,
         bodyChildren: (wh.body || []).map((s: any, i: number) =>
-          convertStatementToBlock(s, `${idPrefix}_body_${i}`)
+          convertStatementToBlock(s, `${idPrefix}_body_${i}`, isEs)
         )
       };
     }
@@ -108,10 +109,10 @@ function convertStatementToBlock(stmt: ASTNode, idPrefix: string): StructogramBl
       return {
         id: idPrefix,
         type: 'repeat',
-        label: `Hasta Que condición`,
+        label: isEs ? `Hasta Que condición` : `Until condition`,
         line: rep.line,
         bodyChildren: (rep.body || []).map((s: any, i: number) =>
-          convertStatementToBlock(s, `${idPrefix}_body_${i}`)
+          convertStatementToBlock(s, `${idPrefix}_body_${i}`, isEs)
         )
       };
     }
@@ -121,10 +122,10 @@ function convertStatementToBlock(stmt: ASTNode, idPrefix: string): StructogramBl
       return {
         id: idPrefix,
         type: 'for',
-        label: `Para ${f.variableName} <- ...`,
+        label: isEs ? `Para ${f.variableName} <- ...` : `For ${f.variableName} <- ...`,
         line: f.line,
         bodyChildren: (f.body || []).map((s: any, i: number) =>
-          convertStatementToBlock(s, `${idPrefix}_body_${i}`)
+          convertStatementToBlock(s, `${idPrefix}_body_${i}`, isEs)
         )
       };
     }
@@ -132,23 +133,23 @@ function convertStatementToBlock(stmt: ASTNode, idPrefix: string): StructogramBl
     case 'Switch': {
       const sw = stmt as any;
       const cases = (sw.cases || []).map((c: any, ci: number) => ({
-        label: `Caso ${ci + 1}`,
+        label: isEs ? `Caso ${ci + 1}` : `Case ${ci + 1}`,
         children: (c.body || []).map((s: any, si: number) =>
-          convertStatementToBlock(s, `${idPrefix}_c${ci}_${si}`)
+          convertStatementToBlock(s, `${idPrefix}_c${ci}_${si}`, isEs)
         )
       }));
       if (sw.defaultCase) {
         cases.push({
-          label: 'De Otro Modo',
+          label: isEs ? 'De Otro Modo' : 'Default',
           children: sw.defaultCase.map((s: any, si: number) =>
-            convertStatementToBlock(s, `${idPrefix}_def_${si}`)
+            convertStatementToBlock(s, `${idPrefix}_def_${si}`, isEs)
           )
         });
       }
       return {
         id: idPrefix,
         type: 'switch',
-        label: `Segun expresión`,
+        label: isEs ? `Segun expresión` : `Switch expression`,
         line: sw.line,
         cases
       };

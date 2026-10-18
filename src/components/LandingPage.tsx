@@ -41,7 +41,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button className="pl-icon-btn" onClick={onToggleTheme} title="Cambiar tema">
               {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
             </button>
-            <button className="pl-btn pl-btn--outline-field pl-btn--sm" onClick={onToggleLang}>
+            <button
+              className="pl-btn pl-btn--outline-field pl-btn--sm"
+              onClick={onToggleLang}
+              title={isEs ? 'Cambiar a inglés (EN)' : 'Switch to Spanish (ES)'}
+              aria-label={isEs ? 'Cambiar idioma a inglés' : 'Switch language to Spanish'}
+            >
               {isEs ? 'EN' : 'ES'}
             </button>
             <button className="pl-btn pl-btn--on-field pl-btn--sm" onClick={() => onOpenIDE()}>
@@ -145,31 +150,31 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               }}
             >
               <div>
-                <p className="pl-overline pl-overline--brand">Código con sentencia activa</p>
+                <p className="pl-overline pl-overline--brand">{isEs ? 'Código con sentencia activa' : 'Code with active statement'}</p>
                 <div style={{ background: 'var(--pl-canvas)', border: '1px solid var(--pl-line)', borderRadius: '8px', padding: '1rem', fontFamily: 'var(--pl-font-mono)', fontSize: '0.88rem', overflowX: 'auto' }}>
-                  <div style={{ color: 'var(--pl-syn-proc)' }}>Proceso DemostracionGuiada</div>
-                  <div style={{ paddingLeft: '1.5rem', color: 'var(--pl-ink-2)' }}>Definir temperatura Como Entero;</div>
-                  <div style={{ paddingLeft: '1.5rem', color: 'var(--pl-ink-2)' }}>temperatura &lt;- 30;</div>
-                  <div style={{ paddingLeft: '1.5rem', color: 'var(--pl-syn-struct)' }}>Mientras temperatura &gt; 24 Hacer</div>
+                  <div style={{ color: 'var(--pl-syn-proc)' }}>{isEs ? 'Proceso DemostracionGuiada' : 'algorithm GuidedDemo'}</div>
+                  <div style={{ paddingLeft: '1.5rem', color: 'var(--pl-ink-2)' }}>{isEs ? 'Definir temperatura Como Entero;' : 'define temperature as integer;'}</div>
+                  <div style={{ paddingLeft: '1.5rem', color: 'var(--pl-ink-2)' }}>{isEs ? 'temperatura <- 30;' : 'temperature <- 30;'}</div>
+                  <div style={{ paddingLeft: '1.5rem', color: 'var(--pl-syn-struct)' }}>{isEs ? 'Mientras temperatura > 24 Hacer' : 'while temperature > 24 do'}</div>
                   <div style={{ paddingLeft: '3rem', background: 'var(--pl-brand-tint)', color: 'var(--pl-brand-deep)', fontWeight: 600, borderRadius: '4px', padding: '2px 6px' }}>
-                    &rarr; temperatura &lt;- temperatura - 3;
+                    &rarr; {isEs ? 'temperatura <- temperatura - 3;' : 'temperature <- temperature - 3;'}
                   </div>
-                  <div style={{ paddingLeft: '3rem', color: 'var(--pl-ink)' }}>Escribir "Temperatura: ", temperatura;</div>
-                  <div style={{ paddingLeft: '1.5rem', color: 'var(--pl-syn-struct)' }}>FinMientras</div>
-                  <div style={{ color: 'var(--pl-syn-proc)' }}>FinProceso</div>
+                  <div style={{ paddingLeft: '3rem', color: 'var(--pl-ink)' }}>{isEs ? 'Escribir "Temperatura: ", temperatura;' : 'write "Temperature: ", temperature;'}</div>
+                  <div style={{ paddingLeft: '1.5rem', color: 'var(--pl-syn-struct)' }}>{isEs ? 'FinMientras' : 'endWhile'}</div>
+                  <div style={{ color: 'var(--pl-syn-proc)' }}>{isEs ? 'FinProceso' : 'endAlgorithm'}</div>
                 </div>
               </div>
 
               <div>
-                <p className="pl-overline pl-overline--brand">Tabla de Traza y Memoria Sincronizada</p>
+                <p className="pl-overline pl-overline--brand">{isEs ? 'Tabla de Traza y Memoria Sincronizada' : 'Synchronized Trace & Memory Table'}</p>
                 <div style={{ background: 'var(--pl-canvas)', border: '1px solid var(--pl-line)', borderRadius: '8px', padding: '0.5rem', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                   <table className="trace-table" style={{ fontSize: '0.8rem', width: '100%', minWidth: '320px' }}>
                     <thead>
                       <tr>
-                        <th>Paso</th>
-                        <th>Línea</th>
-                        <th>temperatura</th>
-                        <th>Estado</th>
+                        <th>{isEs ? 'Paso' : 'Step'}</th>
+                        <th>{isEs ? 'Línea' : 'Line'}</th>
+                        <th>{isEs ? 'temperatura' : 'temperature'}</th>
+                        <th>{isEs ? 'Estado' : 'Status'}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -177,25 +182,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         <td>1</td>
                         <td>2</td>
                         <td>0</td>
-                        <td>Declaración</td>
+                        <td>{isEs ? 'Declaración' : 'Declaration'}</td>
                       </tr>
                       <tr>
                         <td>2</td>
                         <td>3</td>
                         <td className="trace-cell--changed">30</td>
-                        <td>Asignación inicial</td>
+                        <td>{isEs ? 'Asignación inicial' : 'Initial assignment'}</td>
                       </tr>
                       <tr>
                         <td>3</td>
                         <td>4</td>
                         <td>30</td>
-                        <td>Condición &gt; 24 (Verdadero)</td>
+                        <td>{isEs ? 'Condición > 24 (Verdadero)' : 'Condition > 24 (True)'}</td>
                       </tr>
                       <tr className="trace-table__row--active">
                         <td>4</td>
                         <td>5</td>
                         <td className="trace-cell--changed">27</td>
-                        <td>Resta (-3) [Activo]</td>
+                        <td>{isEs ? 'Resta (-3) [Activo]' : 'Subtraction (-3) [Active]'}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -282,7 +287,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <article className="track__card">
               <h3 className="track__card-title">
                 <span>{isEs ? 'Tramo A · Fundamentos' : 'Track A · Foundations'}</span>
-                <span className="track__modules pl-mono">2 módulos</span>
+                <span className="track__modules pl-mono">{isEs ? '2 módulos' : '2 modules'}</span>
               </h3>
               <p style={{ color: '#d1ecee', fontSize: '0.92rem', marginBottom: '1rem' }}>
                 {isEs
@@ -327,7 +332,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <article className="track__card">
               <h3 className="track__card-title">
                 <span>{isEs ? 'Tramo B · Programación estructurada' : 'Track B · Structured Programming'}</span>
-                <span className="track__modules pl-mono">8 módulos</span>
+                <span className="track__modules pl-mono">{isEs ? '8 módulos' : '8 modules'}</span>
               </h3>
               <p style={{ color: '#d1ecee', fontSize: '0.92rem', marginBottom: '1rem' }}>
                 {isEs
@@ -378,7 +383,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <article className="track__card">
               <h3 className="track__card-title">
                 <span>{isEs ? 'Tramo C · Objetos' : 'Track C · Object-Oriented'}</span>
-                <span className="track__modules pl-mono">5 módulos</span>
+                <span className="track__modules pl-mono">{isEs ? '5 módulos' : '5 modules'}</span>
               </h3>
               <p style={{ color: '#d1ecee', fontSize: '0.92rem', marginBottom: '1rem' }}>
                 {isEs
@@ -510,7 +515,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div>
             <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '0.3rem' }}>PseudoFlow Web</div>
             <div style={{ fontSize: '0.85rem', color: '#92dada', marginBottom: '0.5rem' }}>
-              Editor de pseudocódigo en línea, diagramas de flujo y pruebas de escritorio en tiempo real.
+              {isEs
+                ? 'Editor de pseudocódigo en línea, diagramas de flujo y pruebas de escritorio en tiempo real.'
+                : 'Online pseudocode editor, flowcharts, and synchronized desk trace tables in real-time.'}
             </div>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '0.82rem' }}>
               <a href="#editor" style={{ color: '#8be4e8', textDecoration: 'none' }}>{isEs ? 'Editor Interactivo' : 'Interactive Editor'}</a>

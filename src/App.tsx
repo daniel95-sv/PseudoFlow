@@ -21,6 +21,7 @@ export function App() {
   }, [theme]);
 
   useEffect(() => {
+    document.documentElement.lang = lang;
     safeStorageSet('pseudoflow-lang', lang);
   }, [lang]);
 

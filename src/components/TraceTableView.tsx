@@ -4,13 +4,18 @@ import { TraceStep } from '../engine/types';
 interface TraceTableViewProps {
   steps: TraceStep[];
   currentStepIndex: number;
+  lang?: 'es' | 'en';
 }
 
-export const TraceTableView: React.FC<TraceTableViewProps> = ({ steps, currentStepIndex }) => {
+export const TraceTableView: React.FC<TraceTableViewProps> = ({ steps, currentStepIndex, lang = 'es' }) => {
+  const isEs = lang === 'es';
+
   if (steps.length === 0) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--pl-ink-2)' }}>
-        La tabla de traza se completará automáticamente al ejecutar el programa paso a paso.
+        {isEs
+          ? 'La tabla de traza se completará automáticamente al ejecutar el programa paso a paso.'
+          : 'The desk trace table will automatically populate as you step through the program.'}
       </div>
     );
   }
@@ -29,9 +34,9 @@ export const TraceTableView: React.FC<TraceTableViewProps> = ({ steps, currentSt
       <table className="trace-table">
         <thead>
           <tr>
-            <th style={{ width: '60px' }}>Paso</th>
-            <th style={{ width: '60px' }}>Línea</th>
-            <th>Acción</th>
+            <th style={{ width: '60px' }}>{isEs ? 'Paso' : 'Step'}</th>
+            <th style={{ width: '60px' }}>{isEs ? 'Línea' : 'Line'}</th>
+            <th>{isEs ? 'Acción' : 'Action'}</th>
             {variableColumns.map(v => (
               <th key={v}>{v}</th>
             ))}
