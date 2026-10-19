@@ -96,6 +96,9 @@ npm run build
 npx wrangler pages deploy dist --project-name=pseudoflow
 ```
 
+### Guía de Operaciones, Cuotas y Rollback
+Para consultar el catálogo completo de cuotas y límites de memoria del motor, políticas de caché HTTP y el procedimiento de reversión inmediata (rollback) en producción, consulta la [Guía de Despliegue y Operaciones (DEPLOYMENT.md)](./DEPLOYMENT.md).
+
 ---
 
 ## 📄 Licencia

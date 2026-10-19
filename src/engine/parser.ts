@@ -165,7 +165,10 @@ export class Parser {
     }
 
     this.match('DEFINIR');
-    const varName = this.consume('IDENTIFIER', 'Se esperaba el nombre de la variable').value;
+    const varNames: string[] = [this.consume('IDENTIFIER', 'Se esperaba el nombre de la variable').value];
+    while (this.match('COMMA')) {
+      varNames.push(this.consume('IDENTIFIER', 'Se esperaba el nombre de la variable tras la coma').value);
+    }
     this.consume('COMO', 'Se esperaba "Como" tras el nombre de la variable');
 
     let dataType = 'Entero';
@@ -180,7 +183,8 @@ export class Parser {
     return {
       type: 'Declaration',
       line,
-      variableName: varName,
+      variableName: varNames[0],
+      variableNames: varNames,
       dataType,
       isPrivate
     };
@@ -189,15 +193,20 @@ export class Parser {
   private parseDimension(): DimensionNode {
     const line = this.peek().line;
     this.advance(); // consume DIMENSION
-    const name = this.consume('IDENTIFIER', 'Se esperaba el nombre del arreglo').value;
-    this.consume('LBRACKET', 'Se esperaba "[" tras el nombre del arreglo');
+    const dimensions: { name: string; sizes: ExpressionNode[] }[] = [];
 
-    const sizes: ExpressionNode[] = [];
-    sizes.push(this.parseExpression());
-    while (this.match('COMMA')) {
+    do {
+      const name = this.consume('IDENTIFIER', 'Se esperaba el nombre del arreglo').value;
+      this.consume('LBRACKET', 'Se esperaba "[" tras el nombre del arreglo');
+
+      const sizes: ExpressionNode[] = [];
       sizes.push(this.parseExpression());
-    }
-    this.consume('RBRACKET', 'Se esperaba "]" al cerrar la dimensión');
+      while (this.match('COMMA')) {
+        sizes.push(this.parseExpression());
+      }
+      this.consume('RBRACKET', 'Se esperaba "]" al cerrar la dimensión');
+      dimensions.push({ name, sizes });
+    } while (this.match('COMMA') && !this.isAtEnd() && this.check('IDENTIFIER') && this.tokens[this.current + 1]?.type === 'LBRACKET');
 
     let dataType = 'Entero';
     if (this.match('COMO')) {
@@ -213,8 +222,9 @@ export class Parser {
     return {
       type: 'Dimension',
       line,
-      name,
-      sizes,
+      name: dimensions[0].name,
+      sizes: dimensions[0].sizes,
+      dimensions,
       dataType
     };
   }
@@ -238,8 +248,15 @@ export class Parser {
       noNewline = true;
     }
 
+    const statementStarters = new Set([
+      'ESCRIBIR', 'LEER', 'DEFINIR', 'DIMENSION', 'SI', 'MIENTRAS', 'PARA', 'REPETIR',
+      'SEGUN', 'FINPROCESO', 'FINSI', 'FINMIENTRAS', 'FINPARA', 'FINSEGUN', 'FINSUBPROCESO',
+      'FINCLASE', 'FINMETODO', 'RETORNAR', 'SUBPROCESO', 'CLASE', 'METODO', 'HASTA', 'SINO'
+    ]);
+    const isNextStatementOnNewLine = !this.isAtEnd() && this.peek().line > line && statementStarters.has(this.peek().type);
+
     const expressions: ExpressionNode[] = [];
-    if (!this.check('SEMICOLON') && !this.check('SIN') && !this.isAtEnd()) {
+    if (!this.check('SEMICOLON') && !this.check('SIN') && !this.isAtEnd() && !isNextStatementOnNewLine) {
       do {
         expressions.push(this.parseExpression());
       } while (this.match('COMMA'));
@@ -953,7 +970,14 @@ export class Parser {
 
   private isIdentifierToken(token?: Token): boolean {
     if (!token) return false;
-    return token.type === 'IDENTIFIER' || token.type === 'VALOR' || token.type === 'REFERENCIA' || token.type === 'PASO' || token.type === 'OTRO' || token.type === 'MODO' || token.type === 'CASO';
+    return token.type === 'IDENTIFIER' ||
+      token.type === 'VALOR' ||
+      token.type === 'REFERENCIA' ||
+      token.type === 'PASO' ||
+      token.type === 'OTRO' ||
+      token.type === 'MODO' ||
+      token.type === 'CASO' ||
+      (token.type === 'AND' && token.value.toLowerCase() === 'y');
   }
 
   private check(type: string): boolean {

@@ -190,6 +190,18 @@ export class InteractiveSession {
     }
   }
 
+  private restartWorker(): void {
+    if (this.worker) {
+      try {
+        this.worker.terminate();
+      } catch {
+        // Ignore
+      }
+      this.worker = null;
+    }
+    this.initWorker();
+  }
+
   public async start(code: string, options?: InterpreterOptions): Promise<{ success: boolean; sessionId: string; error?: string }> {
     // 1. Flush any prior in-flight operations with previous session context BEFORE setting new sessionId
     this.flushPending('Sesión reemplazada por nueva inicialización.');
@@ -226,6 +238,8 @@ export class InteractiveSession {
       timer = setTimeout(() => {
         if (this.pendingReady && this.pendingReady.requestId === reqId) {
           this.pendingReady = null;
+          this.currentSessionId = null;
+          this.restartWorker();
           resolve({
             success: false,
             sessionId,
@@ -318,17 +332,9 @@ export class InteractiveSession {
       timer = setTimeout(() => {
         if (this.pendingStep && this.pendingStep.requestId === reqId) {
           console.warn(`Watchdog 10s triggered on step requestId ${reqId}. Terminating and restarting Worker.`);
-          if (this.worker) {
-            try {
-              this.worker.terminate();
-            } catch {
-              // Ignore
-            }
-            this.worker = null;
-          }
           this.flushPending('Tiempo de espera agotado (watchdog 10s): el Worker interactivo no respondió y fue reiniciado.');
           this.currentSessionId = null;
-          this.initWorker();
+          this.restartWorker();
         }
       }, 10000);
 
@@ -372,6 +378,8 @@ export class InteractiveSession {
       timer = setTimeout(() => {
         if (this.pendingInput && this.pendingInput.requestId === reqId) {
           this.pendingInput = null;
+          this.currentSessionId = null;
+          this.restartWorker();
           resolve({
             success: false,
             error: 'Tiempo de espera agotado (5s) al enviar entrada al Worker.'
@@ -428,6 +436,8 @@ export class InteractiveSession {
       timer = setTimeout(() => {
         if (this.pendingReady && this.pendingReady.requestId === reqId) {
           this.pendingReady = null;
+          this.currentSessionId = null;
+          this.restartWorker();
           resolve({
             success: false,
             sessionId,

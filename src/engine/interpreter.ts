@@ -155,7 +155,15 @@ export class Interpreter {
       const safeVal = typeof val === 'string' && val.length > Interpreter.MAX_INPUT_LENGTH
         ? val.slice(0, Interpreter.MAX_INPUT_LENGTH)
         : val;
-      this.assignValue(this.inputTarget, this.parsePrimitiveInput(safeVal));
+      const parsed = this.parsePrimitiveInput(safeVal);
+      this.assignValue(this.inputTarget, parsed);
+      if (this.steps.length > 0) {
+        const lastStep = this.steps[this.steps.length - 1];
+        if (lastStep.changedVar === this.inputTarget || lastStep.action.startsWith('Leer ')) {
+          lastStep.action = `Leer ${this.inputTarget} (= ${this.formatValue(parsed)})`;
+          lastStep.variables = this.getVariablesSnapshot();
+        }
+      }
       this.isWaitingForInput = false;
       this.inputTarget = undefined;
     }
@@ -278,6 +286,11 @@ export class Interpreter {
     return this.resolveVariable(name);
   }
 
+  private isReservedProperty(name: string): boolean {
+    const lower = name.toLowerCase();
+    return lower === '__proto__' || lower === 'prototype' || lower === 'constructor';
+  }
+
   private truncateSafeUnicode(str: string, maxLen: number): string {
     if (str.length <= maxLen) return str;
     let cut = maxLen;
@@ -394,14 +407,17 @@ export class Interpreter {
       case 'Declaration': {
         const decl = stmt as DeclarationNode;
         const initialVal = this.defaultValueFor(decl.dataType);
-        this.assignValue(decl.variableName, initialVal);
-        this.currentFrame()?.variableTypes?.set(decl.variableName.toLowerCase(), decl.dataType);
+        const names = decl.variableNames && decl.variableNames.length > 0 ? decl.variableNames : [decl.variableName];
+        for (const name of names) {
+          this.assignValue(name, initialVal);
+          this.currentFrame()?.variableTypes?.set(name.toLowerCase(), decl.dataType);
+        }
         const step: TraceStep = {
           stepNumber: this.stepNumber,
           lineNumber: decl.line,
-          action: `Definir ${decl.variableName} Como ${decl.dataType}`,
+          action: `Definir ${names.join(', ')} Como ${decl.dataType}`,
           variables: this.getVariablesSnapshot(),
-          changedVar: decl.variableName
+          changedVar: names[names.length - 1]
         };
         this.recordStep(step);
         yield step;
@@ -410,38 +426,47 @@ export class Interpreter {
 
       case 'Dimension': {
         const dim = stmt as DimensionNode;
-        const sizes: number[] = [];
-        for (const sExpr of dim.sizes) {
-          const val = this.evalExpression(sExpr);
-          if (typeof val !== 'number' || !Number.isFinite(val) || isNaN(val) || !Number.isInteger(val)) {
-            throw new Error(`La dimensión para "${dim.name}" debe ser un número entero válido (recibido ${val} en línea ${dim.line})`);
+        const dimsToProcess = dim.dimensions && dim.dimensions.length > 0 ? dim.dimensions : [{ name: dim.name, sizes: dim.sizes }];
+        const summaryActions: string[] = [];
+        let lastName = dim.name;
+
+        for (const targetDim of dimsToProcess) {
+          const sizes: number[] = [];
+          for (const sExpr of targetDim.sizes) {
+            const val = this.evalExpression(sExpr);
+            if (typeof val !== 'number' || !Number.isFinite(val) || isNaN(val) || !Number.isInteger(val)) {
+              throw new Error(`La dimensión para "${targetDim.name}" debe ser un número entero válido (recibido ${val} en línea ${dim.line})`);
+            }
+            if (val <= 0) {
+              throw new Error(`El tamaño de la dimensión para "${targetDim.name}" debe ser mayor a 0 (recibido ${val} en línea ${dim.line})`);
+            }
+            sizes.push(val);
           }
-          if (val <= 0) {
-            throw new Error(`El tamaño de la dimensión para "${dim.name}" debe ser mayor a 0 (recibido ${val} en línea ${dim.line})`);
+          const totalElements = sizes.reduce((acc, sz) => acc * sz, 1);
+          if (totalElements > this.maxArrayElements) {
+            throw new Error(`El arreglo "${targetDim.name}" solicita ${totalElements} elementos, superando el límite de ${this.maxArrayElements} elementos permitidos.`);
           }
-          sizes.push(val);
+          if (this.totalAllocatedArrayElements + totalElements > this.maxSystemTotalArrayElements) {
+            throw new Error(`La cuota total de memoria para arreglos ha sido superada (${this.totalAllocatedArrayElements + totalElements} > ${this.maxSystemTotalArrayElements} elementos).`);
+          }
+          this.totalAllocatedArrayElements += totalElements;
+          const curFrame = this.currentFrame();
+          if (curFrame) {
+            curFrame.allocatedArrayElements = (curFrame.allocatedArrayElements || 0) + totalElements;
+          }
+          const arr = this.createArray(sizes, this.defaultValueFor(dim.dataType));
+          this.assignValue(targetDim.name, arr);
+          this.currentFrame()?.variableTypes?.set(targetDim.name.toLowerCase(), dim.dataType);
+          summaryActions.push(`${targetDim.name}[${sizes.join(', ')}]`);
+          lastName = targetDim.name;
         }
-        const totalElements = sizes.reduce((acc, sz) => acc * sz, 1);
-        if (totalElements > this.maxArrayElements) {
-          throw new Error(`El arreglo "${dim.name}" solicita ${totalElements} elementos, superando el límite de ${this.maxArrayElements} elementos permitidos.`);
-        }
-        if (this.totalAllocatedArrayElements + totalElements > this.maxSystemTotalArrayElements) {
-          throw new Error(`La cuota total de memoria para arreglos ha sido superada (${this.totalAllocatedArrayElements + totalElements} > ${this.maxSystemTotalArrayElements} elementos).`);
-        }
-        this.totalAllocatedArrayElements += totalElements;
-        const curFrame = this.currentFrame();
-        if (curFrame) {
-          curFrame.allocatedArrayElements = (curFrame.allocatedArrayElements || 0) + totalElements;
-        }
-        const arr = this.createArray(sizes, this.defaultValueFor(dim.dataType));
-        this.assignValue(dim.name, arr);
-        this.currentFrame()?.variableTypes?.set(dim.name.toLowerCase(), dim.dataType);
+
         const step: TraceStep = {
           stepNumber: this.stepNumber,
           lineNumber: dim.line,
-          action: `Dimension ${dim.name}[${sizes.join(', ')}]`,
+          action: `Dimension ${summaryActions.join(', ')}`,
           variables: this.getVariablesSnapshot(),
-          changedVar: dim.name
+          changedVar: lastName
         };
         this.recordStep(step);
         yield step;
@@ -457,6 +482,11 @@ export class Interpreter {
           const inst = this.currentFrame()?.thisInstance;
           if (inst && assign.target.member) {
             const parts = assign.target.member.split('.');
+            for (const p of parts) {
+              if (this.isReservedProperty(p)) {
+                throw new Error(`Asignación denegada a propiedad reservada: "${p}"`);
+              }
+            }
             let obj: any = inst;
             for (let p = 0; p < parts.length - 1; p++) {
               if (obj && obj.fields) obj = obj.fields[parts[p]];
@@ -468,6 +498,11 @@ export class Interpreter {
           }
         } else if (assign.target.member) {
           const parts = assign.target.member.split('.');
+          for (const p of parts) {
+            if (this.isReservedProperty(p)) {
+              throw new Error(`Asignación denegada a propiedad reservada: "${p}"`);
+            }
+          }
           let obj: any = this.resolveVariable(assign.target.name);
           for (let p = 0; p < parts.length - 1; p++) {
             if (obj && obj.fields) obj = obj.fields[parts[p]];
@@ -515,6 +550,11 @@ export class Interpreter {
             const inst = this.currentFrame()?.thisInstance;
             if (inst && target.member) {
               const parts = target.member.split('.');
+              for (const p of parts) {
+                if (this.isReservedProperty(p)) {
+                  throw new Error(`Lectura denegada a propiedad reservada: "${p}"`);
+                }
+              }
               let obj: any = inst;
               for (let p = 0; p < parts.length - 1; p++) {
                 if (obj && obj.fields) obj = obj.fields[parts[p]];
@@ -526,6 +566,11 @@ export class Interpreter {
             }
           } else if (target.member) {
             const parts = target.member.split('.');
+            for (const p of parts) {
+              if (this.isReservedProperty(p)) {
+                throw new Error(`Lectura denegada a propiedad reservada: "${p}"`);
+              }
+            }
             let obj: any = this.resolveVariable(target.name);
             for (let p = 0; p < parts.length - 1; p++) {
               if (obj && obj.fields) obj = obj.fields[parts[p]];
@@ -768,7 +813,15 @@ export class Interpreter {
       case 'This': {
         const inst = this.currentFrame()?.thisInstance;
         if (!inst) throw new Error('"Este" solo es accesible dentro de una clase');
-        if (expr.member) return inst.fields[expr.member];
+        if (expr.member) {
+          if (this.isReservedProperty(expr.member)) {
+            throw new Error(`Acceso denegado a miembro reservado: "${expr.member}"`);
+          }
+          if (Object.prototype.hasOwnProperty.call(inst.fields, expr.member)) {
+            return inst.fields[expr.member];
+          }
+          throw new Error(`Campo no definido en "${inst.className}": "${expr.member}"`);
+        }
         return inst;
       }
 
@@ -809,6 +862,9 @@ export class Interpreter {
             if (right === 0) throw new Error('Error en tiempo de ejecución: División por cero no permitida');
             return left / right;
           case '^':
+            if (left === 0 && right < 0) {
+              throw new Error('Error en tiempo de ejecución: Potencia con base cero y exponente negativo no permitida (división por cero)');
+            }
             return Math.pow(left, right);
           case '=':
             return left === right;
@@ -845,8 +901,11 @@ export class Interpreter {
         if (!obj || typeof obj !== 'object') {
           throw new Error(`No se puede acceder al miembro "${expr.member}" de un valor no objeto`);
         }
+        if (this.isReservedProperty(expr.member)) {
+          throw new Error(`Acceso denegado a miembro reservado: "${expr.member}"`);
+        }
         // Could be a field access when no arguments are provided
-        if (obj.fields && expr.member in obj.fields && !expr.args) {
+        if (obj.fields && Object.prototype.hasOwnProperty.call(obj.fields, expr.member) && !expr.args) {
           return obj.fields[expr.member];
         }
         // Or method call
@@ -871,7 +930,7 @@ export class Interpreter {
         const instance: ObjectInstance = {
           id: `${cls.name}#${this.objectCounter}`,
           className: cls.name,
-          fields: {}
+          fields: Object.create(null)
         };
         // Initialize default fields from class and superclass
         this.initClassFields(cls, instance);
@@ -904,11 +963,17 @@ export class Interpreter {
 
   // OOP helpers
   private initClassFields(cls: ClassNode, instance: ObjectInstance): void {
+    if (!instance.fields) {
+      instance.fields = Object.create(null);
+    }
     if (cls.superClass) {
       const superCls = this.classes.get(cls.superClass.toLowerCase());
       if (superCls) this.initClassFields(superCls, instance);
     }
     for (const f of cls.fields) {
+      if (this.isReservedProperty(f.variableName)) {
+        throw new Error(`Nombre de campo reservado no permitido: "${f.variableName}"`);
+      }
       instance.fields[f.variableName] = this.defaultValueFor(f.dataType);
     }
   }
@@ -992,9 +1057,16 @@ export class Interpreter {
 
       if (param.isReference && rawArgs[i].type === 'Variable') {
         const callerVar = (rawArgs[i] as any).name;
-        const callerScope = this.findScopeFor(callerVar);
-        if (callerScope) {
-          references.set(param.name, { scope: callerScope, key: callerVar });
+        const callerFrame = this.currentFrame();
+        if (callerFrame?.references?.has(callerVar)) {
+          // Chain to the root reference directly
+          const rootRef = callerFrame.references.get(callerVar)!;
+          references.set(param.name, rootRef);
+        } else {
+          const callerScope = this.findScopeFor(callerVar);
+          if (callerScope) {
+            references.set(param.name, { scope: callerScope, key: callerVar });
+          }
         }
       }
       frameVars.set(param.name, val);
@@ -1022,10 +1094,10 @@ export class Interpreter {
       if (step.done) break;
     }
 
-    // Sync back reference parameters if needed
+    // Sync reference parameters back to local frameVars
     for (const [paramName, ref] of references.entries()) {
-      if (frameVars.has(paramName)) {
-        ref.scope.set(ref.key, frameVars.get(paramName));
+      if (ref.scope.has(ref.key)) {
+        frameVars.set(paramName, ref.scope.get(ref.key));
       }
     }
 
@@ -1041,6 +1113,7 @@ export class Interpreter {
     switch (n) {
       case 'rc':
       case 'raiz':
+      case 'sqrt':
         if (args.length === 0) throw new Error('La función rc/raiz requiere 1 argumento');
         if (args[0] < 0) throw new Error('No se puede calcular la raíz cuadrada de un número negativo');
         return Math.sqrt(args[0]);
@@ -1048,9 +1121,11 @@ export class Interpreter {
         if (args.length === 0) throw new Error('La función abs requiere 1 argumento');
         return Math.abs(args[0]);
       case 'trunc':
+      case 'truncate':
         if (args.length === 0) throw new Error('La función trunc requiere 1 argumento');
         return Math.trunc(args[0]);
       case 'redon':
+      case 'round':
         if (args.length === 0) throw new Error('La función redon requiere 1 argumento');
         return Math.round(args[0]);
       case 'sen':
@@ -1074,15 +1149,20 @@ export class Interpreter {
         return Math.exp(args[0]);
       case 'azar':
       case 'aleatorio':
+      case 'random':
         const max = args[0] !== undefined ? args[0] : 10;
         return Math.floor(Math.random() * max);
       case 'longitud':
+      case 'length':
         return String(args[0] !== undefined ? args[0] : '').length;
       case 'mayusculas':
+      case 'uppercase':
         return String(args[0] !== undefined ? args[0] : '').toUpperCase();
       case 'minusculas':
+      case 'lowercase':
         return String(args[0] !== undefined ? args[0] : '').toLowerCase();
-      case 'subcadena': {
+      case 'subcadena':
+      case 'substring': {
         const str = String(args[0] !== undefined ? args[0] : '');
         const start = args[1] !== undefined ? Math.floor(args[1]) : 0;
         const end = args[2] !== undefined ? Math.floor(args[2]) : str.length;
@@ -1110,7 +1190,9 @@ export class Interpreter {
       case 'charfromcode':
         return String.fromCharCode(Number(args[0] !== undefined ? args[0] : 0));
       case 'copiar':
-      case 'copy': {
+      case 'copiasuperficial':
+      case 'copy':
+      case 'shallowcopy': {
         const inst = args[0];
         if (!inst || typeof inst !== 'object' || !inst.className) {
           throw new Error('La función Copiar requiere una instancia de objeto');
@@ -1119,7 +1201,7 @@ export class Interpreter {
         return {
           id: `${inst.className}#${this.objectCounter}`,
           className: inst.className,
-          fields: { ...inst.fields }
+          fields: Object.assign(Object.create(null), inst.fields)
         };
       }
       default:
@@ -1140,7 +1222,7 @@ export class Interpreter {
       if (frame.variables.has(name)) {
         return frame.variables.get(name);
       }
-      if (frame.thisInstance && name in frame.thisInstance.fields) {
+      if (frame.thisInstance && Object.prototype.hasOwnProperty.call(frame.thisInstance.fields, name)) {
         return frame.thisInstance.fields[name];
       }
     }
@@ -1163,8 +1245,20 @@ export class Interpreter {
       return;
     }
 
-    if (frame.thisInstance && name in frame.thisInstance.fields) {
+    if (frame.thisInstance && Object.prototype.hasOwnProperty.call(frame.thisInstance.fields, name)) {
       frame.thisInstance.fields[name] = val;
+      return;
+    }
+
+    if (frame.variables.has(name) || (frame.variableTypes && frame.variableTypes.has(name.toLowerCase()))) {
+      frame.variables.set(name, val);
+      return;
+    }
+
+    const outerScope = this.findScopeFor(name);
+    if (outerScope) {
+      outerScope.set(name, val);
+      frame.variables.set(name, val);
       return;
     }
 
@@ -1192,6 +1286,9 @@ export class Interpreter {
   }
 
   private getArrayElement(arr: any[], indices: number[]): any {
+    if (!Array.isArray(arr)) {
+      throw new Error('Error en tiempo de ejecución: La variable no es un arreglo o no ha sido dimensionada con Dimension');
+    }
     let curr = arr;
     for (let i = 0; i < indices.length; i++) {
       const idx = indices[i];
@@ -1204,6 +1301,9 @@ export class Interpreter {
   }
 
   private setArrayElement(arr: any[], indices: number[], val: any): void {
+    if (!Array.isArray(arr)) {
+      throw new Error('Error en tiempo de ejecución: La variable no es un arreglo o no ha sido dimensionada con Dimension');
+    }
     let curr = arr;
     for (let i = 0; i < indices.length - 1; i++) {
       const idx = indices[i];

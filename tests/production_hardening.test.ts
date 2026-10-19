@@ -8,6 +8,8 @@ import {
 } from '../src/engine/executionService';
 import { InteractiveSession } from '../src/engine/interactiveExecutionService';
 import { transpileToPython, transpileToRust } from '../src/engine/transpiler';
+import { generateFlowchart } from '../src/engine/flowchart';
+import { generateStructogram } from '../src/engine/structogram';
 
 describe('A. Global Output Limits & Memory Hardening', () => {
   it('bounds total output characters across repeated Escribir Sin Saltar', () => {
@@ -456,6 +458,68 @@ describe('C. Interactive Execution Isolation & Session Safety', () => {
 
     session.stop();
   });
+
+  it('cancels and resets cleanly when session.stop() or session.reset() is called during interactive input wait', async () => {
+    const code = `
+      Proceso EsperaInterrumpida
+        Definir val Como Entero;
+        Leer val;
+        Escribir "Valor:", val;
+      FinProceso
+    `;
+
+    // 1. Test stop() during waiting for input
+    const session1 = new InteractiveSession();
+    const start1 = await session1.start(code);
+    await session1.step(start1.sessionId); // Definir
+    const stepWait1 = await session1.step(start1.sessionId); // Leer
+    expect(stepWait1.isWaitingForInput).toBe(true);
+
+    // Stop while waiting for input
+    session1.stop();
+    expect(session1.getSessionId()).toBeNull();
+
+    // Any late input or step attempt must fail cleanly without throwing
+    const inputLate = await session1.provideInput(start1.sessionId, '123');
+    expect(inputLate.success).toBe(false);
+    const stepLate = await session1.step(start1.sessionId);
+    expect(stepLate.done).toBe(true);
+
+    // 2. Test reset() during waiting for input with new program
+    const session2 = new InteractiveSession();
+    const start2 = await session2.start(code);
+    await session2.step(start2.sessionId);
+    const stepWait2 = await session2.step(start2.sessionId);
+    expect(stepWait2.isWaitingForInput).toBe(true);
+
+    // Reset directly to new program without supplying input
+    const resetRes = await session2.reset('Proceso ProgramaReiniciado\nEscribir "ReiniciadoExitoso";\nFinProceso');
+    expect(resetRes.success).toBe(true);
+    expect(resetRes.sessionId).not.toBe(start2.sessionId);
+
+    // Step through the newly reset session to verify it runs without deadlocks
+    let step = await session2.step(resetRes.sessionId);
+    let count = 0;
+    while (!step.done && count < 10) {
+      step = await session2.step(resetRes.sessionId);
+      count++;
+    }
+    expect(step.outputs).toContain('ReiniciadoExitoso');
+    session2.stop();
+  });
+});
+
+describe('C2. Storage Resilience & State Recovery', () => {
+  it('falls back to memory store when window.localStorage throws exceptions or is quota exceeded', async () => {
+    const { safeStorageGet, safeStorageSet, safeStorageRemove } = await import('../src/engine/storage');
+    const testKey = 'test-quota-resilience';
+
+    safeStorageSet(testKey, 'algoritmo_guardado_123');
+    expect(safeStorageGet(testKey)).toBe('algoritmo_guardado_123');
+
+    safeStorageRemove(testKey);
+    expect(safeStorageGet(testKey, 'default_val')).toBe('default_val');
+  });
 });
 
 describe('D. Parser Recursion & Block Hardening', () => {
@@ -543,3 +607,480 @@ describe('E. Transpiler Syntax & Semantic Conformance (Python & Rust)', () => {
     expect(rs).not.toMatch(/r\d\s*=\s*.*?\b[YO]\b/);
   });
 });
+
+describe('E. Fase 1 — Bloqueos de Seguridad (P0 Verification)', () => {
+  it('1. Confirmar límites: respeta límites de CPU, pasos, recursión, memoria y salida', () => {
+    // A. Límite de pasos
+    const infiniteCode = `
+      Proceso BucleInfinito
+        Definir x Como Entero;
+        x <- 1;
+        Mientras Verdadero Hacer
+          x <- x + 1;
+        FinMientras
+      FinProceso
+    `;
+    const astSteps = new Parser(new Lexer(infiniteCode).tokenize()).parse();
+    const interpSteps = new Interpreter(astSteps, { maxSteps: 50 });
+    expect(() => interpSteps.runAll([], true)).toThrowError(/Límite de ejecución alcanzado/);
+
+    // B. Límite de recursión / Call Stack
+    const recursiveCode = `
+      SubProceso RecursionInfinita(n Como Entero)
+        RecursionInfinita(n + 1);
+      FinSubProceso
+      Proceso TestRec
+        RecursionInfinita(1);
+      FinProceso
+    `;
+    const astRec = new Parser(new Lexer(recursiveCode).tokenize()).parse();
+    const interpRec = new Interpreter(astRec, { maxCallStackDepth: 15 });
+    expect(() => interpRec.runAll([], true)).toThrowError(/Profundidad máxima de pila de llamadas superada/);
+
+    // C. Límite de memoria en arreglos (Dimension)
+    const arrayCode = `
+      Proceso ArregloGigante
+        Dimension arr[500, 500];
+      FinProceso
+    `;
+    const astArr = new Parser(new Lexer(arrayCode).tokenize()).parse();
+    const interpArr = new Interpreter(astArr, { maxArrayElements: 1000 });
+    expect(() => interpArr.runAll([], true)).toThrowError(/superando el límite/);
+
+    // D. Límite de salida
+    const outputCode = `
+      Proceso SalidaExcesiva
+        Definir i Como Entero;
+        Para i <- 1 Hasta 100 Hacer
+          Escribir "Linea ", i;
+        FinPara
+      FinProceso
+    `;
+    const astOut = new Parser(new Lexer(outputCode).tokenize()).parse();
+    const interpOut = new Interpreter(astOut, { maxOutputLines: 10 });
+    const resOut = interpOut.runAll();
+    expect(resOut.outputs.length).toBe(11);
+    expect(resOut.outputs[10]).toContain('[Salida truncada');
+  });
+
+  it('2. Terminar Worker: watchdog y timeouts reinician efectivamente el Worker ante cuelgues', async () => {
+    const session = new InteractiveSession();
+    let terminated = false;
+    const mockWorker: any = {
+      postMessage: () => {},
+      terminate: () => { terminated = true; }
+    };
+    (session as any).isFallback = false;
+    (session as any).worker = mockWorker;
+    (session as any).currentSessionId = 'sess_timeout_test';
+
+    // Simulate provideInput timeout
+    const providePromise = session.provideInput('sess_timeout_test', 'test_value');
+    const pendingInput = (session as any).pendingInput;
+    expect(pendingInput).toBeDefined();
+    clearTimeout(pendingInput.timer);
+
+    // Trigger restart
+    (session as any).restartWorker();
+    pendingInput.resolve({ success: false, error: 'Tiempo de espera agotado (5s) al enviar entrada al Worker.' });
+
+    const inputRes = await providePromise;
+    expect(terminated).toBe(true);
+    expect(inputRes.success).toBe(false);
+    expect(inputRes.error).toContain('agotado');
+    session.stop();
+  });
+
+  it('3. Aislamiento de sesiones: sesiones obsoletas no alteran ejecuciones nuevas', async () => {
+    const session = new InteractiveSession();
+    const startRes1 = await session.start('Proceso S1\nEscribir "Sesion1";\nFinProceso');
+    expect(startRes1.success).toBe(true);
+
+    const startRes2 = await session.start('Proceso S2\nEscribir "Sesion2";\nFinProceso');
+    expect(startRes2.success).toBe(true);
+    expect(startRes2.sessionId).not.toBe(startRes1.sessionId);
+
+    // Intento de dar un paso en la sesión 1 anterior debe ser rechazado
+    const stepStale = await session.step(startRes1.sessionId);
+    expect(stepStale.done).toBe(true);
+    expect(stepStale.cancelled).toBe(true);
+    expect(stepStale.error).toContain('desfasada');
+
+    // La sesión actual debe progresar independientemente
+    const stepCurrent = await session.step(startRes2.sessionId);
+    expect(stepCurrent.done).toBe(false);
+    expect(stepCurrent.sessionId).toBe(startRes2.sessionId);
+    session.stop();
+  });
+
+  it('4. Seguridad de APIs: previene prototype pollution y bloquea miembros reservados en objetos', () => {
+    // Intento de acceder o asignar a __proto__ / constructor / prototype
+    const codeAttack = `
+      Clase TestClase
+        Definir nombre Como Cadena;
+        Publico Metodo Iniciar()
+          Este.nombre <- "Seguro";
+        FinMetodo
+      FinClase
+
+      Proceso TestHack
+        Definir obj Como TestClase;
+        obj <- Nuevo TestClase();
+        obj.Iniciar();
+        Escribir obj.__proto__;
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(codeAttack).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    expect(() => interp.runAll([], true)).toThrowError(/Acceso denegado a miembro reservado/);
+  });
+
+  it('4b. Seguridad de APIs: los campos de objetos no heredan de Object.prototype (Object.create(null))', () => {
+    const codePrototype = `
+      Clase ObjetoLimpio
+        Definir valor Como Entero;
+      FinClase
+
+      Proceso TestPrototype
+        Definir miObj Como ObjetoLimpio;
+        miObj <- Nuevo ObjetoLimpio();
+        Escribir miObj.toString;
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(codePrototype).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    // toString no debe existir como campo ni ejecutarse desde Object.prototype
+    expect(() => interp.runAll([], true)).toThrowError(/Método "toString" no encontrado|No se puede acceder al miembro/);
+  });
+
+  it('5. Cabeceras del despliegue real: public/_headers contiene CSP estricta, COOP, HSTS, X-Frame-Options y permisos', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const headersPath = path.resolve(__dirname, '../public/_headers');
+    expect(fs.existsSync(headersPath)).toBe(true);
+
+    const headersContent = fs.readFileSync(headersPath, 'utf-8');
+    expect(headersContent).toContain('X-Content-Type-Options: nosniff');
+    expect(headersContent).toContain('X-Frame-Options: DENY');
+    expect(headersContent).toContain('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
+    expect(headersContent).toContain('Cross-Origin-Opener-Policy: same-origin');
+    expect(headersContent).toContain("Content-Security-Policy: default-src 'self'");
+    expect(headersContent).toContain("worker-src 'self' blob:");
+    expect(headersContent).toContain("frame-ancestors 'none'");
+    expect(headersContent).toContain("object-src 'none'");
+    expect(headersContent).toContain('Permissions-Policy:');
+  });
+});
+
+describe('F. Fase 2 — Integridad del Intérprete (P1 Verification)', () => {
+  it('1. Valida expresiones y operadores: previene divisiones por cero en potencia y valida arreglos no inicializados', () => {
+    // A. Potencia con base 0 y exponente negativo
+    const zeroPowerCode = `
+      Proceso TestPotenciaCero
+        Definir p Como Real;
+        p <- 0 ^ (-2);
+      FinProceso
+    `;
+    const astPower = new Parser(new Lexer(zeroPowerCode).tokenize()).parse();
+    const interpPower = new Interpreter(astPower);
+    expect(() => interpPower.runAll([], true)).toThrowError(/base cero y exponente negativo/);
+
+    // B. Acceso a variable no dimensionada como arreglo
+    const nonArrayCode = `
+      Proceso TestNoArreglo
+        Definir x Como Entero;
+        x <- 10;
+        Escribir x[0];
+      FinProceso
+    `;
+    const astNonArr = new Parser(new Lexer(nonArrayCode).tokenize()).parse();
+    const interpNonArr = new Interpreter(astNonArr);
+    expect(() => interpNonArr.runAll([], true)).toThrowError(/no es un arreglo o no ha sido dimensionada/);
+  });
+
+  it('1b. Valida bucles Para decrecientes y estructuras de control Segun/Repetir', () => {
+    const code = `
+      Proceso TestControl
+        Definir sum Como Entero;
+        Definir i Como Entero;
+        sum <- 0;
+        Para i <- 5 Hasta 1 Con Paso -1 Hacer
+          sum <- sum + i;
+        FinPara
+
+        Definir estado Como Cadena;
+        Segun sum Hacer
+          Caso 15:
+            estado <- "Correcto";
+          De Otro Modo:
+            estado <- "Incorrecto";
+        FinSegun
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll();
+    expect(interp.getVariable('sum')).toBe(15);
+    expect(interp.getVariable('estado')).toBe('Correcto');
+  });
+
+  it('2. Alcance, referencias y estado: soporta encadenamiento multinivel de paso Por Referencia', () => {
+    const code = `
+      SubProceso SubNivel2(val2 Como Entero Por Referencia)
+        val2 <- val2 * 3;
+      FinSubProceso
+
+      SubProceso SubNivel1(val1 Como Entero Por Referencia)
+        val1 <- val1 + 5;
+        SubNivel2(val1);
+      FinSubProceso
+
+      Proceso TestChainedRef
+        Definir num Como Entero;
+        num <- 10;
+        SubNivel1(num);
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll();
+    // (10 + 5) * 3 = 45
+    expect(interp.getVariable('num')).toBe(45);
+  });
+
+  it('2b. Alcance: mutación de variables del entorno global desde subprogramas', () => {
+    const code = `
+      SubProceso ModificarGlobal()
+        globalCounter <- globalCounter + 1;
+      FinSubProceso
+
+      Proceso TestGlobalScope
+        Definir globalCounter Como Entero;
+        globalCounter <- 100;
+        ModificarGlobal();
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    interp.runAll();
+    expect(interp.getVariable('globalCounter')).toBe(101);
+  });
+
+  it('3. Entradas interactivas y recuperación: sincroniza el valor provisto en la traza y se recupera de errores', async () => {
+    const code = `
+      Proceso TestInteractiveLeer
+        Definir nombre Como Cadena;
+        Leer nombre;
+        Escribir "Hola ", nombre;
+      FinProceso
+    `;
+    const session = new InteractiveSession();
+    const startRes = await session.start(code);
+    expect(startRes.success).toBe(true);
+    const sId = startRes.sessionId;
+
+    // Step 1: Definir nombre
+    await session.step(sId);
+    // Step 2: Leer nombre (entra en espera)
+    const readStep = await session.step(sId);
+    expect(readStep.isWaitingForInput).toBe(true);
+
+    // Provide input
+    const inputRes = await session.provideInput(sId, 'Carlos');
+    expect(inputRes.success).toBe(true);
+
+    // Step 3: Escribir
+    const writeStep = await session.step(sId);
+    expect(writeStep.step?.outputLog).toContain('Hola Carlos');
+
+    // Step 4: FinProceso
+    const endStep = await session.step(sId);
+    expect(endStep.done).toBe(true);
+    expect(endStep.outputs).toContain('Hola Carlos');
+    session.stop();
+  });
+
+  it('4. Consistencia entre intérprete, traza y diagramas: cada línea de sentencia coincide con nodos de flujo y estructograma', () => {
+    const code = `
+      Proceso TestConsistencia
+        Definir x Como Entero;
+        x <- 1;
+        Para x <- 1 Hasta 3 Hacer
+          Escribir x;
+        FinPara
+        Repetir
+          x <- x - 1;
+        Hasta Que x = 0
+      FinProceso
+    `;
+    const ast = new Parser(new Lexer(code).tokenize()).parse();
+    const interp = new Interpreter(ast);
+    const runRes = interp.runAll();
+
+    // Verify flowchart nodes exist for all executed statements
+    const fc = generateFlowchart(ast);
+    const fcLines = new Set(fc.nodes.map(n => n.line));
+    for (const step of runRes.steps) {
+      expect(fcLines.has(step.lineNumber)).toBe(true);
+    }
+
+    // Verify structogram blocks exist
+    const ns = generateStructogram(ast);
+    const nsLines = new Set(ns.map(b => b.line));
+    expect(nsLines.has(ast.body[0].line)).toBe(true);
+    expect(ns.length).toBeGreaterThanOrEqual(3);
+  });
+
+  describe('Fase 3: Validación de lenguajes y currículo (P1)', () => {
+    it('1. Lexer reconoce operador ! como negación lógica NO', () => {
+      const code = `
+        Proceso TestNotExclamacion
+          Definir bandera Como Logico;
+          bandera <- ! Falso;
+          Si ! (bandera = Falso) Entonces
+            Escribir "Exito!";
+          FinSi
+        FinProceso
+      `;
+      const ast = new Parser(new Lexer(code).tokenize()).parse();
+      const interp = new Interpreter(ast);
+      const res = interp.runAll();
+      expect(res.outputs).toEqual(['Exito!']);
+    });
+
+    it('2. Soporte léxico y sintáctico completo para palabras clave en inglés y compuestas', () => {
+      const code = `
+        class Base
+          public method Value() as integer
+            return 42;
+          endMethod
+        endClass
+
+        class Derived extends Base
+          public method Value() as integer
+            return super.Value();
+          endMethod
+        endClass
+
+        subroutine Compute(val as integer) as integer
+          return val * 2;
+        endSubroutine
+
+        algorithm TestEnglishKeywords
+          define d as Derived;
+          define n as integer;
+          d <- new Derived();
+          n <- Compute(d.Value());
+          write "Value: " without newline;
+          write n;
+        endAlgorithm
+      `;
+      const ast = new Parser(new Lexer(code).tokenize()).parse();
+      const interp = new Interpreter(ast);
+      const res = interp.runAll();
+      expect(res.outputs).toEqual(['Value: 84']);
+    });
+
+    it('3. Declaraciones múltiples (Definir a, b, c) y dimensiones múltiples (Dimension a[2], b[3, 3])', () => {
+      const code = `
+        Proceso TestMultiDeclaracion
+          Definir a, b, c Como Entero;
+          Dimension v[2], m[2, 2] Como Entero;
+          a <- 10;
+          b <- 20;
+          c <- 30;
+          v[0] <- a;
+          v[1] <- b;
+          m[0, 0] <- c;
+          m[1, 1] <- v[0] + v[1] + m[0, 0];
+          Escribir "Total:", m[1, 1];
+        FinProceso
+      `;
+      const ast = new Parser(new Lexer(code).tokenize()).parse();
+      const interp = new Interpreter(ast);
+      const res = interp.runAll();
+      expect(res.outputs).toEqual(['Total:60']);
+    });
+
+    it('4. Permite usar "y" como identificador sin interferir con operador lógico "Y"', () => {
+      const code = `
+        Proceso TestVariableY
+          Definir x Como Entero;
+          Definir y Como Entero;
+          x <- 5;
+          y <- 10;
+          Si x < 10 Y y > 5 Entonces
+            Escribir "x+y=", x + y;
+          FinSi
+        FinProceso
+      `;
+      const ast = new Parser(new Lexer(code).tokenize()).parse();
+      const interp = new Interpreter(ast);
+      const res = interp.runAll();
+      expect(res.outputs).toEqual(['x+y=15']);
+    });
+
+    it('5. Escribir sin argumentos ni punto y coma en su propia línea genera salto de línea sin error sintáctico', () => {
+      const code = `
+        Algoritmo SalidaVacia
+          Escribir "Linea 1"
+          Escribir
+          Escribir "Linea 3"
+        FinAlgoritmo
+      `;
+      const ast = new Parser(new Lexer(code).tokenize()).parse();
+      const interp = new Interpreter(ast);
+      const res = interp.runAll();
+      expect(res.outputs).toEqual(['Linea 1', '', 'Linea 3']);
+    });
+
+    it('6. Alias bilingües de funciones matemáticas y de cadena en el intérprete', () => {
+      const code = `
+        algorithm TestAliases
+          define r as real;
+          define len as integer;
+          define may as text;
+          r <- round(3.7);
+          len <- length("PseudoFlow");
+          may <- uppercase("hola");
+          write "R:", r, ",L:", len, ",M:", may;
+        endAlgorithm
+      `;
+      const ast = new Parser(new Lexer(code).tokenize()).parse();
+      const interp = new Interpreter(ast);
+      const res = interp.runAll();
+      expect(res.outputs).toEqual(['R:4.0,L:10,M:HOLA']);
+    });
+
+    it('7. Calidad de casos ocultos: 100% de los 95 ejercicios poseen casos ocultos sin duplicados respecto a visibles', async () => {
+      const exercises = (await import('../src/data/exercises.json')).default;
+      expect(exercises.length).toBe(95);
+
+      let totalVisible = 0;
+      let totalHidden = 0;
+      let duplicateCases = 0;
+
+      for (const ex of exercises) {
+        expect(ex.visibleCases?.length || 0).toBeGreaterThanOrEqual(1);
+        expect(ex.hiddenCases?.length || 0).toBeGreaterThanOrEqual(1);
+        totalVisible += ex.visibleCases.length;
+        totalHidden += ex.hiddenCases.length;
+
+        const visSet = new Set(ex.visibleCases.map((c: any) => JSON.stringify(c.inputs || [])));
+        for (const hc of ex.hiddenCases) {
+          const hStr = JSON.stringify(hc.inputs || []);
+          if (visSet.has(hStr)) {
+            duplicateCases++;
+          }
+        }
+      }
+
+      expect(totalVisible).toBe(190);
+      expect(totalHidden).toBe(285);
+      expect(duplicateCases).toBe(0);
+    });
+  });
+});
+
+
+

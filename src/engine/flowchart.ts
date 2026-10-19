@@ -299,6 +299,199 @@ function processStatement(
       return { nodes, connections, lastNodeId: decId, nextY: currentY, nextId: idCounter };
     }
 
+    case 'Dimension': {
+      const dim = stmt as any;
+      const id = `node_${idCounter++}`;
+      const node: FlowNode = {
+        id,
+        type: 'process',
+        label: `Dimension ${dim.name}[...]`,
+        line: dim.line,
+        x: centerX - 85,
+        y: currentY,
+        width: 170,
+        height: 44
+      };
+      nodes.push(node);
+      connections.push({
+        fromId: prevId,
+        toId: id,
+        points: [{ x: centerX, y: currentY - 26 }, { x: centerX, y: currentY }]
+      });
+      return { nodes, connections, lastNodeId: id, nextY: currentY + 70, nextId: idCounter };
+    }
+
+    case 'For': {
+      const f = stmt as any;
+      const decId = `node_${idCounter++}`;
+      const node: FlowNode = {
+        id: decId,
+        type: 'decision',
+        label: isEs ? `¿Para ${f.variableName}?` : `For ${f.variableName}?`,
+        line: f.line,
+        x: centerX - 75,
+        y: currentY,
+        width: 150,
+        height: 55
+      };
+      nodes.push(node);
+      connections.push({
+        fromId: prevId,
+        toId: decId,
+        points: [{ x: centerX, y: currentY - 25 }, { x: centerX, y: currentY }]
+      });
+
+      currentY += 80;
+      let lastId = decId;
+
+      for (const s of f.body || []) {
+        const res = processStatement(s, centerX, currentY, lastId, idCounter, isEs);
+        idCounter = res.nextId;
+        nodes.push(...res.nodes);
+        connections.push(...res.connections);
+        lastId = res.lastNodeId;
+        currentY = res.nextY;
+      }
+
+      // Loopback connection to decision node
+      connections.push({
+        fromId: lastId,
+        toId: decId,
+        isLoopBack: true,
+        points: [
+          { x: centerX, y: currentY - 25 },
+          { x: centerX - 120, y: currentY - 25 },
+          { x: centerX - 120, y: startY + 27 },
+          { x: centerX - 75, y: startY + 27 }
+        ]
+      });
+
+      return { nodes, connections, lastNodeId: decId, nextY: currentY, nextId: idCounter };
+    }
+
+    case 'Repeat': {
+      const rep = stmt as any;
+      const startBodyY = currentY;
+      let lastId = prevId;
+
+      const bodyNodes: FlowNode[] = [];
+      const bodyConnections: FlowConnection[] = [];
+
+      for (const s of rep.body || []) {
+        const res = processStatement(s, centerX, currentY, lastId, idCounter, isEs);
+        idCounter = res.nextId;
+        bodyNodes.push(...res.nodes);
+        bodyConnections.push(...res.connections);
+        lastId = res.lastNodeId;
+        currentY = res.nextY;
+      }
+
+      nodes.push(...bodyNodes);
+      connections.push(...bodyConnections);
+
+      const decId = `node_${idCounter++}`;
+      const decNode: FlowNode = {
+        id: decId,
+        type: 'decision',
+        label: isEs ? '¿Hasta Que?' : 'Until?',
+        line: rep.line,
+        x: centerX - 75,
+        y: currentY,
+        width: 150,
+        height: 55
+      };
+      nodes.push(decNode);
+      connections.push({
+        fromId: lastId,
+        toId: decId,
+        points: [{ x: centerX, y: currentY - 25 }, { x: centerX, y: currentY }]
+      });
+
+      const firstBodyId = bodyNodes.length > 0 ? bodyNodes[0].id : decId;
+      connections.push({
+        fromId: decId,
+        toId: firstBodyId,
+        isLoopBack: true,
+        points: [
+          { x: centerX - 75, y: currentY + 27 },
+          { x: centerX - 120, y: currentY + 27 },
+          { x: centerX - 120, y: startBodyY },
+          { x: centerX - 60, y: startBodyY }
+        ]
+      });
+
+      return { nodes, connections, lastNodeId: decId, nextY: currentY + 80, nextId: idCounter };
+    }
+
+    case 'Switch': {
+      const sw = stmt as any;
+      const decId = `node_${idCounter++}`;
+      const node: FlowNode = {
+        id: decId,
+        type: 'decision',
+        label: isEs ? '¿Segun caso?' : 'Switch case?',
+        line: sw.line,
+        x: centerX - 75,
+        y: currentY,
+        width: 150,
+        height: 55
+      };
+      nodes.push(node);
+      connections.push({
+        fromId: prevId,
+        toId: decId,
+        points: [{ x: centerX, y: currentY - 25 }, { x: centerX, y: currentY }]
+      });
+
+      currentY += 80;
+      let lastId = decId;
+
+      for (const c of sw.cases || []) {
+        for (const s of c.body || []) {
+          const res = processStatement(s, centerX, currentY, lastId, idCounter, isEs);
+          idCounter = res.nextId;
+          nodes.push(...res.nodes);
+          connections.push(...res.connections);
+          lastId = res.lastNodeId;
+          currentY = res.nextY;
+        }
+      }
+      if (sw.defaultCase) {
+        for (const s of sw.defaultCase) {
+          const res = processStatement(s, centerX, currentY, lastId, idCounter, isEs);
+          idCounter = res.nextId;
+          nodes.push(...res.nodes);
+          connections.push(...res.connections);
+          lastId = res.lastNodeId;
+          currentY = res.nextY;
+        }
+      }
+
+      return { nodes, connections, lastNodeId: lastId, nextY: currentY, nextId: idCounter };
+    }
+
+    case 'CallStatement': {
+      const cs = stmt as any;
+      const id = `node_${idCounter++}`;
+      const node: FlowNode = {
+        id,
+        type: 'process',
+        label: isEs ? 'Llamar subprograma' : 'Call subprogram',
+        line: cs.line,
+        x: centerX - 85,
+        y: currentY,
+        width: 170,
+        height: 44
+      };
+      nodes.push(node);
+      connections.push({
+        fromId: prevId,
+        toId: id,
+        points: [{ x: centerX, y: currentY - 26 }, { x: centerX, y: currentY }]
+      });
+      return { nodes, connections, lastNodeId: id, nextY: currentY + 70, nextId: idCounter };
+    }
+
     default: {
       const id = `node_${idCounter++}`;
       const node: FlowNode = {

@@ -1115,9 +1115,11 @@ endAlgorithm
 
     return (
       <>
-        <div className="ide-surfaces-nav">
+        <div className="ide-surfaces-nav" role="tablist" aria-label={isEs ? 'Pestañas de visualización y diagramas' : 'Visualization and diagram tabs'}>
           <button
             type="button"
+            role="tab"
+            aria-selected={effectiveTab === 'flow'}
             className={`ide-surface-tab ${effectiveTab === 'flow' ? 'ide-surface-tab--active' : ''}`}
             onClick={() => setActiveSurfaceTab('flow')}
           >
@@ -1126,6 +1128,8 @@ endAlgorithm
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={effectiveTab === 'ns'}
             className={`ide-surface-tab ${effectiveTab === 'ns' ? 'ide-surface-tab--active' : ''}`}
             onClick={() => setActiveSurfaceTab('ns')}
           >
@@ -1135,6 +1139,8 @@ endAlgorithm
           {includeTraceTab && (
             <button
               type="button"
+              role="tab"
+              aria-selected={effectiveTab === 'trace'}
               className={`ide-surface-tab ${effectiveTab === 'trace' ? 'ide-surface-tab--active' : ''}`}
               onClick={() => setActiveSurfaceTab('trace')}
             >
@@ -1144,6 +1150,8 @@ endAlgorithm
           )}
           <button
             type="button"
+            role="tab"
+            aria-selected={effectiveTab === 'uml'}
             className={`ide-surface-tab ${effectiveTab === 'uml' ? 'ide-surface-tab--active' : ''}`}
             onClick={() => setActiveSurfaceTab('uml')}
           >
@@ -1152,6 +1160,8 @@ endAlgorithm
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={effectiveTab === 'export'}
             className={`ide-surface-tab ${effectiveTab === 'export' ? 'ide-surface-tab--active' : ''}`}
             onClick={() => setActiveSurfaceTab('export')}
           >
@@ -1241,6 +1251,7 @@ endAlgorithm
               className={`pl-btn pl-btn--sm ${isPlaying ? 'pl-btn--outline' : 'pl-btn--primary'}`}
               onClick={handleStartOrPause}
               title={isPlaying ? (isEs ? 'Pausar' : 'Pause') : (isEs ? 'Ejecutar' : 'Run')}
+              aria-label={isPlaying ? (isEs ? 'Pausar ejecución' : 'Pause execution') : (isEs ? 'Ejecutar pseudocódigo' : 'Run pseudocode')}
             >
               {isPlaying ? <Pause size={14} /> : <Play size={14} fill="currentColor" />}
               <span>{isPlaying ? (isEs ? 'Pausar' : 'Pause') : (isEs ? 'Ejecutar' : 'Run')}</span>
@@ -1251,6 +1262,7 @@ endAlgorithm
               className="pl-btn pl-btn--outline pl-btn--sm"
               onClick={handleStepForward}
               title={isEs ? 'Avanzar 1 sentencia' : 'Step 1 statement'}
+              aria-label={isEs ? 'Avanzar una sentencia' : 'Step forward one statement'}
             >
               <StepForward size={14} />
               <span>{isEs ? 'Paso' : 'Step'}</span>
@@ -1261,6 +1273,7 @@ endAlgorithm
               className="pl-btn pl-btn--outline pl-btn--sm"
               onClick={() => resetExecution()}
               title={isEs ? 'Reiniciar ejecución' : 'Reset execution'}
+              aria-label={isEs ? 'Reiniciar ejecución' : 'Reset execution'}
             >
               <RotateCcw size={14} />
               <span>{isEs ? 'Reiniciar' : 'Reset'}</span>
@@ -1543,9 +1556,11 @@ endAlgorithm
       )}
 
       {/* Mobile Navigation Tabs (< 1024px) */}
-      <nav className="ide-mobile-tabs" aria-label={isEs ? 'Navegación de secciones móvil' : 'Mobile sections navigation'}>
+      <nav className="ide-mobile-tabs" role="tablist" aria-label={isEs ? 'Navegación de secciones móvil' : 'Mobile sections navigation'}>
         <button
           type="button"
+          role="tab"
+          aria-selected={mobileTab === 'code'}
           className={`ide-mobile-tab ${mobileTab === 'code' ? 'ide-mobile-tab--active' : ''}`}
           onClick={() => setMobileTab('code')}
         >
@@ -1555,6 +1570,8 @@ endAlgorithm
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={mobileTab === 'surfaces'}
           className={`ide-mobile-tab ${mobileTab === 'surfaces' ? 'ide-mobile-tab--active' : ''}`}
           onClick={() => setMobileTab('surfaces')}
         >
@@ -1568,6 +1585,8 @@ endAlgorithm
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={mobileTab === 'curriculum'}
           className={`ide-mobile-tab ${mobileTab === 'curriculum' ? 'ide-mobile-tab--active' : ''}`}
           onClick={() => setMobileTab('curriculum')}
         >
@@ -1699,6 +1718,7 @@ endAlgorithm
             className={`pl-btn pl-btn--sm ${isPlaying ? 'pl-btn--outline' : 'pl-btn--primary'}`}
             onClick={handleStartOrPause}
             title={isPlaying ? (isEs ? 'Pausar' : 'Pause') : (isEs ? 'Ejecutar' : 'Run')}
+            aria-label={isPlaying ? (isEs ? 'Pausar ejecución' : 'Pause execution') : (isEs ? 'Ejecutar pseudocódigo' : 'Run pseudocode')}
           >
             {isPlaying ? <Pause size={14} /> : <Play size={14} fill="currentColor" />}
             <span>{isPlaying ? (isEs ? 'Pausar' : 'Pause') : (isEs ? 'Ejecutar' : 'Run')}</span>
@@ -1708,6 +1728,7 @@ endAlgorithm
             className="pl-btn pl-btn--outline pl-btn--sm"
             onClick={handleStepForward}
             title={isEs ? 'Avanzar 1 sentencia' : 'Step'}
+            aria-label={isEs ? 'Avanzar una sentencia' : 'Step forward one statement'}
           >
             <StepForward size={14} />
             <span>{isEs ? 'Paso' : 'Step'}</span>

@@ -4693,7 +4693,7 @@
       {
         "inputs": [
           "1",
-          "0"
+          "2"
         ],
         "expectedOutputs": [
           "1"
@@ -4806,16 +4806,7 @@
     "hiddenCases": [
       {
         "inputs": [
-          "1"
-        ],
-        "expectedOutputs": [
-          "1"
-        ],
-        "expected": "numerico"
-      },
-      {
-        "inputs": [
-          "0"
+          "-1"
         ],
         "expectedOutputs": [
           "0"
@@ -4824,10 +4815,19 @@
       },
       {
         "inputs": [
-          "1"
+          "10"
         ],
         "expectedOutputs": [
-          "1"
+          "0"
+        ],
+        "expected": "numerico"
+      },
+      {
+        "inputs": [
+          "2"
+        ],
+        "expectedOutputs": [
+          "0"
         ],
         "expected": "numerico"
       }
@@ -5141,16 +5141,7 @@
     "hiddenCases": [
       {
         "inputs": [
-          "1"
-        ],
-        "expectedOutputs": [
-          "0"
-        ],
-        "expected": "numerico"
-      },
-      {
-        "inputs": [
-          "0"
+          "-1"
         ],
         "expectedOutputs": [
           "1"
@@ -5159,10 +5150,19 @@
       },
       {
         "inputs": [
-          "1"
+          "10"
         ],
         "expectedOutputs": [
-          "0"
+          "1"
+        ],
+        "expected": "numerico"
+      },
+      {
+        "inputs": [
+          "2"
+        ],
+        "expectedOutputs": [
+          "1"
         ],
         "expected": "numerico"
       }
@@ -5330,16 +5330,16 @@
     "hiddenCases": [
       {
         "inputs": [
-          "1"
+          "-1"
         ],
         "expectedOutputs": [
-          "2"
+          "4"
         ],
         "expected": "numerico"
       },
       {
         "inputs": [
-          "0"
+          "100"
         ],
         "expectedOutputs": [
           "4"
@@ -5538,16 +5538,16 @@
       },
       {
         "inputs": [
-          "1"
+          "0"
         ],
         "expectedOutputs": [
-          "1"
+          "111"
         ],
         "expected": "numerico"
       },
       {
         "inputs": [
-          "3"
+          "-5"
         ],
         "expectedOutputs": [
           "111"
@@ -5660,16 +5660,7 @@
     "hiddenCases": [
       {
         "inputs": [
-          "1"
-        ],
-        "expectedOutputs": [
-          "0"
-        ],
-        "expected": "numerico"
-      },
-      {
-        "inputs": [
-          "0"
+          "2"
         ],
         "expectedOutputs": [
           "1"
@@ -5678,10 +5669,19 @@
       },
       {
         "inputs": [
-          "1"
+          "-1"
         ],
         "expectedOutputs": [
-          "0"
+          "1"
+        ],
+        "expected": "numerico"
+      },
+      {
+        "inputs": [
+          "10"
+        ],
+        "expectedOutputs": [
+          "1"
         ],
         "expected": "numerico"
       }

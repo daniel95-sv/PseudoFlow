@@ -230,8 +230,8 @@ export class Lexer {
         this.advance();
         continue;
       }
-      if (char === '~') {
-        tokens.push({ type: 'NOT', value: '~', line: this.line, col: this.col });
+      if (char === '~' || char === '!') {
+        tokens.push({ type: 'NOT', value: char, line: this.line, col: this.col });
         this.advance();
         continue;
       }
@@ -366,7 +366,9 @@ export class Lexer {
       'escribir': 'ESCRIBIR',
       'write': 'ESCRIBIR',
       'sin': 'SIN',
+      'without': 'SIN',
       'saltar': 'SALTAR',
+      'newline': 'SALTAR',
 
       // Conditionals
       'si': 'SI',
@@ -386,9 +388,11 @@ export class Lexer {
       'caso': 'CASO',
       'case': 'CASO',
       'de': 'DE',
+      'from': 'DE',
       'otro': 'OTRO',
       'modo': 'MODO',
       'default': 'DE_OTRO_MODO',
+      'otherwise': 'DE_OTRO_MODO',
       'finsegun': 'FINSEGUN',
       'endswitch': 'FINSEGUN',
 
@@ -418,11 +422,14 @@ export class Lexer {
       'subalgoritmo': 'SUBPROCESO',
       'funcion': 'SUBPROCESO',
       'subprogram': 'SUBPROCESO',
+      'subroutine': 'SUBPROCESO',
       'function': 'SUBPROCESO',
       'finsubproceso': 'FINSUBPROCESO',
       'finsubalgoritmo': 'FINSUBPROCESO',
       'finfuncion': 'FINSUBPROCESO',
       'endsubprogram': 'FINSUBPROCESO',
+      'endsubroutine': 'FINSUBPROCESO',
+      'endfunction': 'FINSUBPROCESO',
       'por': 'POR',
       'by': 'BY',
       'retornar': 'RETORNAR',
@@ -434,7 +441,9 @@ export class Lexer {
       'finclase': 'FINCLASE',
       'endclass': 'FINCLASE',
       'hereda': 'HEREDA',
+      'heredade': 'HEREDA',
       'inherits': 'HEREDA',
+      'extends': 'HEREDA',
       'metodo': 'METODO',
       'method': 'METODO',
       'finmetodo': 'FINMETODO',
@@ -465,7 +474,7 @@ export class Lexer {
       'div': 'DIV'
     };
 
-    if (KEYWORDS[lower]) {
+    if (Object.prototype.hasOwnProperty.call(KEYWORDS, lower)) {
       return { type: KEYWORDS[lower], value: text, line: startLine, col: startCol };
     }
 

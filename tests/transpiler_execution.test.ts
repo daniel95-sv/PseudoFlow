@@ -419,4 +419,142 @@ describe('Real Transpiled Code Execution & Compiler Verification (Auditoría PF-
       expect(rsRes.status).toBe(0);
     }
   }, 20000);
+
+  it('executes multi-variable declarations in Python and validates Rust syntax', () => {
+    const code = `
+      Algoritmo TestMultiDef
+        Definir a, b, c Como Entero;
+        a <- 10;
+        b <- 25;
+        c <- a + b * 2;
+        Escribir "Total:", c;
+      FinAlgoritmo
+    `;
+    const interpOutputs = runInterpreter(code);
+    expect(interpOutputs).toEqual(['Total:60']);
+
+    const py = transpileToPython(code);
+    const pyRes = runPython(py);
+    expect(pyRes.status).toBe(0);
+    expect(pyRes.stdout).toBe('Total:60');
+
+    const rs = transpileToRust(code);
+    expect(rs).toContain('let mut a: i64 = Default::default();');
+    expect(rs).toContain('let mut b: i64 = Default::default();');
+    expect(rs).toContain('let mut c: i64 = Default::default();');
+    if (isRustcAvailable) {
+      const rsRes = compileAndRunRust(rs);
+      expect(rsRes.compiled).toBe(true);
+      expect(rsRes.stdout).toBe('Total:60');
+    }
+  }, 15000);
+
+  it('executes nested conditionals in Python matching Interpreter and verifies Rust', () => {
+    const code = `
+      Algoritmo TestAnidado
+        Definir x Como Entero;
+        Definir y Como Entero;
+        Definir res Como Cadena;
+        x <- 15;
+        y <- 20;
+        Si x > 10 Entonces
+          Si y > 25 Entonces
+            res <- "MayorY";
+          SiNo
+            res <- "MenorY";
+          FinSi
+        SiNo
+          res <- "MenorX";
+        FinSi
+        Escribir "Clasif:", res;
+      FinAlgoritmo
+    `;
+    const interpOutputs = runInterpreter(code);
+    expect(interpOutputs).toEqual(['Clasif:MenorY']);
+
+    const py = transpileToPython(code);
+    const pyRes = runPython(py);
+    expect(pyRes.status).toBe(0);
+    expect(pyRes.stdout).toBe('Clasif:MenorY');
+
+    const rs = transpileToRust(code);
+    expect(rs).toContain('if x > 10 {');
+    expect(rs).toContain('if y > 25 {');
+    if (isRustcAvailable) {
+      const rsRes = compileAndRunRust(rs);
+      expect(rsRes.compiled).toBe(true);
+      expect(rsRes.stdout).toBe('Clasif:MenorY');
+    }
+  }, 15000);
+
+  it('executes Para loops with non-unit steps in Python and validates Rust range step', () => {
+    const code = `
+      Algoritmo TestPasoNoUnitario
+        Definir i Como Entero;
+        Para i <- 2 Hasta 8 Con Paso 3 Hacer
+          Escribir "Up:", i;
+        FinPara
+        Para i <- 9 Hasta 3 Con Paso -3 Hacer
+          Escribir "Down:", i;
+        FinPara
+      FinAlgoritmo
+    `;
+    const interpOutputs = runInterpreter(code);
+    expect(interpOutputs).toEqual([
+      'Up:2',
+      'Up:5',
+      'Up:8',
+      'Down:9',
+      'Down:6',
+      'Down:3'
+    ]);
+
+    const py = transpileToPython(code);
+    const pyRes = runPython(py);
+    expect(pyRes.status).toBe(0);
+    expect(pyRes.stdout.split('\n')).toEqual(interpOutputs);
+
+    const rs = transpileToRust(code);
+    expect(rs).toContain('.step_by(3)');
+    expect(rs).toContain('.rev().step_by(3)');
+    if (isRustcAvailable) {
+      const rsRes = compileAndRunRust(rs);
+      expect(rsRes.compiled).toBe(true);
+      expect(rsRes.stdout.split('\n')).toEqual(interpOutputs);
+    }
+  }, 15000);
+
+  it('executes 2D matrix accumulation and boundary traversal differentially', () => {
+    const code = `
+      Algoritmo TestMatrizDiferencial
+        Dimension grid[2, 3];
+        Definir f Como Entero;
+        Definir c Como Entero;
+        Definir acc Como Entero;
+        acc <- 0;
+        Para f <- 0 Hasta 1 Con Paso 1 Hacer
+          Para c <- 0 Hasta 2 Con Paso 1 Hacer
+            grid[f, c] <- (f + 1) * (c + 2);
+            acc <- acc + grid[f, c];
+          FinPara
+        FinPara
+        Escribir "AccGrid:", acc;
+      FinAlgoritmo
+    `;
+    const interpOutputs = runInterpreter(code);
+    expect(interpOutputs).toEqual(['AccGrid:27']);
+
+    const py = transpileToPython(code);
+    const pyRes = runPython(py);
+    expect(pyRes.status).toBe(0);
+    expect(pyRes.stdout).toBe('AccGrid:27');
+
+    const rs = transpileToRust(code);
+    expect(rs).toContain('let mut grid = vec![vec![0i64; (3) as usize]; (2) as usize];');
+    if (isRustcAvailable) {
+      const rsRes = compileAndRunRust(rs);
+      expect(rsRes.compiled).toBe(true);
+      expect(rsRes.stdout).toBe('AccGrid:27');
+    }
+  }, 15000);
 });

@@ -42,14 +42,21 @@ export interface ProgramNode extends BaseNode {
 export interface DeclarationNode extends BaseNode {
   type: 'Declaration';
   variableName: string;
+  variableNames?: string[];
   dataType: string;
   isPrivate?: boolean;
+}
+
+export interface DimensionSpec {
+  name: string;
+  sizes: ExpressionNode[];
 }
 
 export interface DimensionNode extends BaseNode {
   type: 'Dimension';
   name: string;
   sizes: ExpressionNode[];
+  dimensions?: DimensionSpec[];
   dataType: string;
 }
 
