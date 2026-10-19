@@ -551,6 +551,7 @@ describe('Real Transpiled Code Execution & Compiler Verification (Auditoría PF-
 
     const rs = transpileToRust(code);
     expect(rs).toContain('let mut grid = vec![vec![0i64; (3) as usize]; (2) as usize];');
+    expect(rs).toContain('grid[(f) as usize][(c) as usize]');
     if (isRustcAvailable) {
       const rsRes = compileAndRunRust(rs);
       expect(rsRes.compiled).toBe(true);

@@ -78,6 +78,18 @@ export function convertArrayIndices(expr: string): string {
   });
 }
 
+export function convertArrayIndicesRust(expr: string): string {
+  return expr.replace(/\[([^\]]+)\]/g, (_match, inner) => {
+    const parts = inner.split(',').map((p: string) => p.trim());
+    return parts.map((p: string) => {
+      if (/\bas\s+usize\b/.test(p)) {
+        return `[${p}]`;
+      }
+      return `[(${p}) as usize]`;
+    }).join('');
+  });
+}
+
 export function convertConditionToPython(cond: string): string {
   const { masked, strings } = maskStrings(cond);
   let res = masked
@@ -220,7 +232,7 @@ export function convertExpressionToRust(expr: string): string {
 
   // Reemplazar '=' simple por '==' sin afectar '<=', '>=', '!=', ':=', '=='
   res = res.replace(/(?<![<>=!:])=(?!=)/g, '==');
-  res = convertArrayIndices(res);
+  res = convertArrayIndicesRust(res);
   return unmaskStrings(res, strings).trim();
 }
 
@@ -631,7 +643,7 @@ export function transpileToRust(pseudocode: string): string {
     // Asignación
     const assignMatch = line.match(/^([a-zA-Z0-9_[\].,\s]+?)\s*(?:<-|:=|=)\s*(.+?);?$/);
     if (assignMatch && !line.startsWith('Para') && !line.startsWith('Si') && !line.startsWith('Mientras')) {
-      const rawTarget = convertArrayIndices(assignMatch[1].trim());
+      const rawTarget = convertArrayIndicesRust(assignMatch[1].trim());
       let rhs = convertExpressionToRust(assignMatch[2].trim());
       const targetType = varTypes.get(rawTarget.toLowerCase());
       if (targetType === 'String' && (rhs.startsWith('"') || rhs.startsWith("'"))) {
